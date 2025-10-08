@@ -16,7 +16,7 @@ col1, col2 = st.columns(2)
 with col1:
     نام_شخص = st.selectbox("نام شخص", ["hassan", "abbas", "shahla", "mohsen"])
     نوع_تراکنش = st.selectbox("نوع تراکنش", ["خرید", "فروش", "انتقال", "سواپ"])
-    نام_ارز = st.selectbox("نام ارز", list(نرخ_فعلی.keys()))
+    نام_ارز = st.selectbox("نام ارز", ["BTC", "ETH", "BNB", "USDT", "SOL", "XRP", "USDC", "ADA", "DOGE", "DOT"])
     مقدار = st.number_input("مقدار ارز", min_value=0.0, format="%.8f")
     قیمت_واحد = st.number_input("قیمت واحد (تومان)", min_value=0.0)
 with col2:
