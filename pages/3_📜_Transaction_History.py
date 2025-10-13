@@ -11,6 +11,11 @@ st.set_page_config(
 st.title("📜 Transaction History")
 st.markdown("View, filter, and manage all your transactions.")
 
+# This needs to be called to make sure data exists
+if 'transactions' not in st.session_state:
+    st.warning("Data not initialized. Please go to the Dashboard first.")
+    st.stop()
+    
 transactions = get_all_transactions()
 
 if transactions.empty:
@@ -19,16 +24,21 @@ if transactions.empty:
 
 # --- Filtering UI ---
 st.sidebar.header("Filters")
+
+# Get unique people and types from the actual data
+people_options = transactions['person_name'].unique()
+type_options = transactions['transaction_type'].unique()
+
 filter_person = st.sidebar.multiselect(
     "Filter by Person",
-    options=PEOPLE,
+    options=people_options,
     format_func=lambda x: x.capitalize()
 )
 
 filter_type = st.sidebar.multiselect(
     "Filter by Type",
-    options=TRANSACTION_TYPE_LABELS.keys(),
-    format_func=lambda x: TRANSACTION_TYPE_LABELS[x]
+    options=type_options,
+    format_func=lambda x: TRANSACTION_TYPE_LABELS.get(x, x)
 )
 
 # Apply filters
@@ -68,5 +78,3 @@ for index, row in filtered_transactions.iterrows():
         if pd.notna(row['notes']) and row['notes'].strip():
             with st.expander("View Notes"):
                 st.write(row['notes'])
-
-```5.  روی **Commit new file** کلیک کنید.
