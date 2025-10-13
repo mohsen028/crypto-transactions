@@ -1,14 +1,17 @@
+# app.py
+import streamlit as st
 import json
 import os
 import datetime
 import uuid
+import pandas as pd
 
 DB_FILE = "transactions.json"
 PEOPLE = ["hassan", "abbas", "shahla", "mohsen"]
 CRYPTOS = ["BTC", "ETH", "BNB", "SOL", "XRP", "USDC", "ADA", "DOGE", "DOT", "PAXG"]
 CURRENCIES = ["USDT"] + CRYPTOS
 
-# --- توابع مدیریت داده ---
+# --- توابع مدیریت داده (بدون تغییر) ---
 def load_transactions():
     """تراکنش‌ها را از فایل JSON بارگذاری می‌کند"""
     if not os.path.exists(DB_FILE):
@@ -25,189 +28,132 @@ def save_transactions(transactions):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(transactions, f, indent=2, ensure_ascii=False)
 
-# --- توابع کمکی رابط کاربری ---
-def clear_screen():
-    """صفحه ترمینال را پاک می‌کند"""
-    os.system('cls' if os.name == 'nt' else 'clear')
+# --- بارگذاری اولیه داده‌ها در Session State ---
+# این کار باعث می‌شود با هر بار کلیک، فایل دوباره خوانده نشود
+if 'transactions' not in st.session_state:
+    st.session_state.transactions = load_transactions()
 
-def get_input(prompt, required=True, input_type=str):
-    """ورودی را از کاربر با اعتبارسنجی دریافت می‌کند"""
-    while True:
-        val = input(f"{prompt}: ").strip()
-        if not val and required:
-            print("این فیلد اجباری است.")
-            continue
-        if not val and not required:
-            return None
-        if input_type:
-            try:
-                return input_type(val)
-            except ValueError:
-                print(f"لطفاً یک مقدار معتبر از نوع {input_type.__name__} وارد کنید.")
-                continue
-        return val
 
-def get_choice(prompt, options):
-    """یک گزینه از لیست را از کاربر انتخاب می‌کند"""
-    for i, option in enumerate(options, 1):
-        print(f"  {i}. {option.capitalize()}")
-    while True:
-        try:
-            choice = int(input(f"{prompt} (عدد را وارد کنید): "))
-            if 1 <= choice <= len(options):
-                return options[choice - 1]
-            else:
-                print("انتخاب نامعتبر است.")
-        except ValueError:
-            print("لطفاً فقط عدد وارد کنید.")
+# --- تعریف صفحات مختلف برنامه ---
 
-def print_transaction(trx, index=None):
-    """یک تراکنش را با فرمت زیبا چاپ می‌کند"""
-    prefix = f"[{index}] " if index is not None else ""
-    print(f"{prefix}ID: {trx['id']}")
-    print(f"  نوع: {trx['transaction_type'].replace('_', ' ').title()}")
-    print(f"  شخص: {trx['person_name'].capitalize()} | تاریخ: {trx['transaction_date']}")
-    if trx.get('input_currency'):
-        print(f"  ورودی: {trx.get('input_amount', '-')} {trx['input_currency']}")
-    if trx.get('output_currency'):
-        print(f"  خروجی: {trx.get('output_amount', '-')} {trx['output_currency']}")
-    if trx.get('notes'):
-        print(f"  یادداشت: {trx['notes']}")
-    print("-" * 30)
-
-# --- توابع اصلی برنامه ---
 def show_dashboard():
-    """داشبورد اصلی شامل آمار و نمودار متنی را نمایش می‌دهد"""
-    clear_screen()
-    transactions = load_transactions()
-    print("--- داشبورد ---")
-
-    # آمار کلی
-    buy_transactions = [t for t in transactions if 'buy' in t['transaction_type']]
-    sell_transactions = [t for t in transactions if t['transaction_type'] == 'sell']
-    total_fees = sum(t.get('fee', 0) for t in transactions if t.get('fee'))
+    """صفحه داشبورد را با استفاده از کامپوننت‌های Streamlit نمایش می‌دهد"""
+    st.title("📊 داشبورد")
     
-    print(f"\nتعداد کل تراکنش‌ها: {len(transactions)}")
-    print(f"تعداد تراکنش‌های خرید: {len(buy_transactions)}")
-    print(f"تعداد تراکنش‌های فروش: {len(sell_transactions)}")
-    print(f"مجموع کارمزدها: ${total_fees:.2f}")
-
-    # نمودار متنی ۷ روز اخیر
-    print("\n--- فعالیت تراکنش‌ها (۷ روز اخیر) ---")
-    today = datetime.date.today()
-    for i in range(7):
-        day = today - datetime.timedelta(days=i)
-        day_str = day.isoformat()
-        day_transactions = [t for t in transactions if t['transaction_date'] == day_str]
-        buy_count = sum(1 for t in day_transactions if 'buy' in t['transaction_type'])
-        sell_count = sum(1 for t in day_transactions if t['transaction_type'] == 'sell')
-        other_count = len(day_transactions) - buy_count - sell_count
-        print(f"{day_str}: خرید: {buy_count}, فروش: {sell_count}, سایر: {other_count}")
+    transactions = st.session_state.transactions
     
-    input("\nبرای بازگشت به منوی اصلی، Enter را بزنید...")
+    # آمار کلی با st.metric
+    st.header("آمار کلی")
+    col1, col2, col3 = st.columns(3)
+    buy_count = sum(1 for t in transactions if 'buy' in t['transaction_type'])
+    sell_count = sum(1 for t in transactions if t['transaction_type'] == 'sell')
+    
+    col1.metric("تعداد کل تراکنش‌ها", len(transactions))
+    col2.metric("تراکنش‌های خرید", buy_count)
+    col3.metric("تراکنش‌های فروش", sell_count)
+
+    # نمودار ۷ روز اخیر با Pandas و st.bar_chart
+    st.header("فعالیت تراکنش‌ها (۷ روز اخیر)")
+    if transactions:
+        df = pd.DataFrame(transactions)
+        df['transaction_date'] = pd.to_datetime(df['transaction_date'])
+        
+        # داده‌ها را برای ۷ روز اخیر فیلتر کن
+        last_7_days = df[df['transaction_date'] > (datetime.datetime.now() - datetime.timedelta(days=7))]
+        
+        # شمارش انواع تراکنش در هر روز
+        if not last_7_days.empty:
+            daily_counts = last_7_days.groupby([last_7_days['transaction_date'].dt.date, 'transaction_type']).size().unstack(fill_value=0)
+            st.bar_chart(daily_counts)
+        else:
+            st.info("هیچ تراکنشی در ۷ روز اخیر ثبت نشده است.")
+    else:
+        st.info("هنوز هیچ تراکنشی ثبت نشده است.")
+
 
 def view_transactions():
-    """لیست تمام تراکنش‌ها را با قابلیت فیلتر نمایش می‌دهد"""
-    clear_screen()
-    transactions = load_transactions()
-    print("--- تاریخچه تراکنش‌ها ---")
-
-    # فیلترها
-    search_term = get_input("جستجو در یادداشت یا ارز (خالی بگذارید برای همه)", required=False)
+    """صفحه تاریخچه تراکنش‌ها را نمایش می‌دهد"""
+    st.title("📜 تاریخچه تراکنش‌ها")
+    
+    transactions = st.session_state.transactions
+    
+    search_term = st.text_input("جستجو در یادداشت یا ارز")
     
     filtered = transactions
     if search_term:
         term = search_term.lower()
-        filtered = [
-            t for t in filtered if 
-            term in t.get('notes', '').lower() or
-            term in t.get('input_currency', '').lower() or
-            term in t.get('output_currency', '').lower()
-        ]
+        filtered = [t for t in filtered if 
+                    term in t.get('notes', '').lower() or
+                    term in t.get('input_currency', '').lower() or
+                    term in t.get('output_currency', '').lower()]
 
     if not filtered:
-        print("\nهیچ تراکنشی با این مشخصات یافت نشد.")
+        st.warning("هیچ تراکنشی یافت نشد.")
     else:
-        for i, trx in enumerate(filtered, 1):
-            print_transaction(trx, i)
-    
-    input("\nبرای بازگشت به منوی اصلی، Enter را بزنید...")
+        for trx in filtered:
+            with st.container(border=True):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.subheader(f"نوع: {trx['transaction_type'].replace('_', ' ').title()}")
+                    st.caption(f"شخص: {trx['person_name'].capitalize()} | تاریخ: {trx['transaction_date']}")
+                    if trx.get('input_currency'):
+                        st.text(f"ورودی: {trx.get('input_amount', '-')} {trx['input_currency']}")
+                    if trx.get('output_currency'):
+                        st.text(f"خروجی: {trx.get('output_amount', '-')} {trx['output_currency']}")
+                # ستون دوم برای دکمه‌های حذف و ویرایش (فعلاً غیرفعال)
+                with col2:
+                    st.button("ویرایش", key=f"edit_{trx['id']}", disabled=True)
+                    st.button("حذف", key=f"delete_{trx['id']}", disabled=True, type="secondary")
 
 def add_transaction():
-    """یک تراکنش جدید اضافه می‌کند"""
-    clear_screen()
-    print("--- ثبت تراکنش جدید ---")
-    
-    trx_type = get_choice("نوع تراکنش را انتخاب کنید", [
-        "buy_usdt_with_toman", "buy_crypto_with_usdt", "sell", "transfer", "swap"
-    ])
+    """صفحه ثبت تراکنش جدید را با یک فرم نمایش می‌دهد"""
+    st.title("✍️ ثبت تراکنش جدید")
 
-    person = get_choice("شخص را انتخاب کنید", PEOPLE)
-    date = get_input("تاریخ (YYYY-MM-DD)", required=True, input_type=str) # Simple string for simplicity
-
-    new_trx = {
-        "id": str(uuid.uuid4()),
-        "transaction_type": trx_type,
-        "person_name": person,
-        "transaction_date": date
-    }
-
-    if trx_type == 'buy_usdt_with_toman':
-        new_trx['input_currency'] = "IRR"
-        new_trx['output_currency'] = "USDT"
-        new_trx['input_amount'] = get_input("مبلغ تومان پرداختی", input_type=float)
-        new_trx['output_amount'] = get_input("مقدار USDT دریافتی", input_type=float)
-        rate = get_input("نرخ USDT به تومان", input_type=float)
-        new_trx['rate'] = rate
-        effective_cost = new_trx['input_amount'] / new_trx['output_amount']
-        new_trx['effective_cost'] = effective_cost
-        new_trx['fee'] = new_trx['input_amount'] - (new_trx['output_amount'] * rate)
-        print(f"هزینه تمام شده هر USDT: {effective_cost:,.2f} تومان")
-
-    elif trx_type == 'buy_crypto_with_usdt':
-        new_trx['input_currency'] = "USDT"
-        new_trx['output_currency'] = get_choice("کدام ارز را خریدید؟", CRYPTOS)
-        new_trx['input_amount'] = get_input("مبلغ USDT پرداختی", input_type=float)
-        new_trx['output_amount'] = get_input(f"مقدار {new_trx['output_currency']} دریافتی", input_type=float)
-        effective_cost = new_trx['input_amount'] / new_trx['output_amount']
-        new_trx['effective_cost'] = effective_cost
-        print(f"هزینه تمام شده هر واحد: {effective_cost:,.2f} USDT")
-
-    # ... می‌توان بقیه انواع تراکنش‌ها را به همین شکل اضافه کرد ...
-
-    new_trx['notes'] = get_input("یادداشت (اختیاری)", required=False)
-    
-    transactions = load_transactions()
-    transactions.append(new_trx)
-    save_transactions(transactions)
-    print("\nتراکنش با موفقیت ثبت شد!")
-    input("برای بازگشت به منوی اصلی، Enter را بزنید...")
-
-def main():
-    """حلقه اصلی برنامه و منوی اصلی"""
-    while True:
-        clear_screen()
-        print("--- مدیریت تراکنش‌های ارز دیجیتال ---")
-        print("1. نمایش داشبورد")
-        print("2. مشاهده تاریخچه تراکنش‌ها")
-        print("3. ثبت تراکنش جدید")
-        print("4. ویرایش تراکنش (پیاده‌سازی نشده)")
-        print("5. حذف تراکنش (پیاده‌سازی نشده)")
-        print("6. خروج")
+    with st.form(key="transaction_form"):
+        transaction_type = st.selectbox("نوع تراکنش", ["buy_usdt_with_toman", "buy_crypto_with_usdt", "sell", "transfer", "swap"])
+        person_name = st.selectbox("شخص", PEOPLE)
+        transaction_date = st.date_input("تاریخ تراکنش", datetime.date.today())
         
-        choice = input("\nلطفاً انتخاب کنید: ")
+        st.subheader("جزئیات تراکنش")
+        if "buy" in transaction_type:
+            input_currency = "IRR" if transaction_type == "buy_usdt_with_toman" else "USDT"
+            output_currency = "USDT" if transaction_type == "buy_usdt_with_toman" else st.selectbox("ارز مقصد", CRYPTOS)
+            input_amount = st.number_input(f"مقدار ورودی ({input_currency})", min_value=0.0, format="%.2f")
+            output_amount = st.number_input(f"مقدار خروجی ({output_currency})", min_value=0.0, format="%.8f")
+        # می‌توان منطق بقیه انواع تراکنش را هم به همین شکل اضافه کرد
         
-        if choice == '1':
-            show_dashboard()
-        elif choice == '2':
-            view_transactions()
-        elif choice == '3':
-            add_transaction()
-        elif choice == '6':
-            print("خدا نگهدار!")
-            break
-        else:
-            input("انتخاب نامعتبر است. برای تلاش مجدد Enter را بزنید...")
+        notes = st.text_area("یادداشت (اختیاری)")
+        
+        submitted = st.form_submit_button("ثبت تراکنش")
 
-if __name__ == "__main__":
-    main()
+        if submitted:
+            new_trx = {
+                "id": str(uuid.uuid4()),
+                "transaction_type": transaction_type,
+                "person_name": person_name,
+                "transaction_date": transaction_date.isoformat(),
+                "input_currency": input_currency,
+                "output_currency": output_currency,
+                "input_amount": input_amount,
+                "output_amount": output_amount,
+                "notes": notes,
+            }
+            
+            st.session_state.transactions.append(new_trx)
+            save_transactions(st.session_state.transactions)
+            st.success("تراکنش با موفقیت ثبت شد!")
+            st.balloons()
+
+
+# --- ساختار اصلی برنامه و منوی کناری ---
+st.sidebar.title("منوی برنامه")
+page_options = {
+    "داشبورد": show_dashboard,
+    "تاریخچه تراکنش‌ها": view_transactions,
+    "ثبت تراکنش جدید": add_transaction,
+}
+selection = st.sidebar.radio("یک صفحه را انتخاب کنید:", list(page_options.keys()))
+
+# اجرای تابع مربوط به صفحه انتخاب شده
+page_to_show = page_options[selection]
+page_to_show()
