@@ -72,3 +72,33 @@ TRANSACTION_TYPE_LABELS = {
 PEOPLE = ["hassan", "abbas", "shahla", "mohsen"]
 CRYPTOS = ["BTC", "ETH", "BNB", "SOL", "XRP", "USDC", "ADA", "DOGE", "DOT", "PAXG"]
 CURRENCIES = ["USDT"] + CRYPTOS
+# --- Portfolio Calculation Functions ---
+def calculate_portfolio(df):
+    """
+    Calculates the current holdings for each person and currency.
+    """
+    if df.empty:
+        return pd.DataFrame(columns=['person_name', 'currency', 'amount'])
+
+    # Create two separate dataframes for gains and losses
+    gains = df[['person_name', 'output_currency', 'output_amount']].rename(
+        columns={'output_currency': 'currency', 'output_amount': 'amount'}
+    )
+    
+    losses = df[['person_name', 'input_currency', 'input_amount']].rename(
+        columns={'input_currency': 'currency', 'input_amount': 'amount'}
+    )
+    
+    # Mark losses as negative values
+    losses['amount'] = -losses['amount']
+    
+    # Combine them into a single long-format dataframe
+    all_movements = pd.concat([gains, losses], ignore_index=True)
+    
+    # Group by person and currency and sum up the amounts to get the final balance
+    portfolio = all_movements.groupby(['person_name', 'currency'])['amount'].sum().reset_index()
+    
+    # Filter out any currencies with a zero or near-zero balance
+    portfolio = portfolio[portfolio['amount'] > 1e-9] # Use a small threshold for floating point inaccuracies
+    
+    return portfolio.sort_values(by=['person_name', 'amount'], ascending=[True, False])
