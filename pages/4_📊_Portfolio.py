@@ -1,55 +1,55 @@
 import streamlit as st
-from utils import get_all_transactions, calculate_portfolio, format_currency
+import pandas as pd
+from utils import get_all_transactions, calculate_portfolio
 
 st.set_page_config(
-    page_title="My Portfolio",
+    page_title="Global Portfolio",
     page_icon="📊",
-    layout="centered"
+    layout="wide"
 )
 
-st.title("📊 My Portfolio")
-st.markdown("View the current balance of all your assets.")
+st.title("📊 Global Portfolio Overview")
+st.markdown("View the current asset balance for everyone in one place.")
 
-# Load data
+# Load and calculate the portfolio
 transactions = get_all_transactions()
-
 if transactions.empty:
-    st.warning("No transactions available. Please add a transaction first.")
+    st.warning("No transactions recorded yet. Add a new transaction to begin.")
     st.stop()
 
-# Calculate the portfolio for everyone
 full_portfolio = calculate_portfolio(transactions)
+if full_portfolio.empty:
+    st.info("No one has any assets with a positive balance right now.")
+    st.stop()
 
-# --- Person Selector ---
+# --- Display Full Portfolio Grouped by Person ---
+st.subheader("All Asset Balances")
+
+# Get a list of all people who have assets
 people_with_assets = full_portfolio['person_name'].unique()
-selected_person = st.selectbox(
-    "Select a person to view their portfolio",
-    options=people_with_assets,
-    format_func=lambda x: x.capitalize()
-)
 
-st.markdown(f"### Assets for {selected_person.capitalize()}")
-
-# Filter portfolio for the selected person
-person_portfolio = full_portfolio[full_portfolio['person_name'] == selected_person]
-
-if person_portfolio.empty:
-    st.info(f"{selected_person.capitalize()} currently has no assets.")
-else:
-    # Display assets using st.metric for a nice card-like view
-    for index, row in person_portfolio.iterrows():
-        currency = row['currency']
-        amount = row['amount']
+for person in people_with_assets:
+    # Create a container for each person for better visual separation
+    with st.container(border=True):
+        st.markdown(f"#### {person.capitalize()}'s Holdings")
         
-        # Use the format_currency utility to display numbers nicely
-        formatted_amount = format_currency(amount, currency).split(' ')[0] # Get only the number part
+        # Filter the dataframe for the current person
+        person_assets = full_portfolio[full_portfolio['person_name'] == person]
         
-        st.metric(label=f"**{currency}** Balance", value=formatted_amount)
+        # Prepare a clean dataframe for display
+        display_df = person_assets[['currency', 'amount']].copy()
         
-    # You can also display it as a table
-    with st.expander("View as a table"):
+        # Display the assets in a table
         st.dataframe(
-            person_portfolio[['currency', 'amount']], 
-            hide_index=True, 
-            use_container_width=True
+            display_df,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "currency": st.column_config.TextColumn("Asset", width="medium"),
+                "amount": st.column_config.NumberColumn("Current Balance", format="%.8f")
+            }
         )
+
+# --- Optional: Show Raw Data in an Expander ---
+with st.expander("View Raw Portfolio Data"):
+    st.dataframe(full_portfolio, hide_index=True, use_container_width=True)
