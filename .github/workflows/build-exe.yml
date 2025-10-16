@@ -26,13 +26,9 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # --- THE FINAL, "BULLDOZER" BUILD COMMAND ---
-      # This command is extremely explicit and leaves nothing to chance.
+      # --- THE FINAL, SINGLE-LINE, FOOLPROOF BUILD COMMAND ---
       - name: Build executable with PyInstaller
-        run: |
-          pyinstaller --onefile --windowed --name "CryptoTracker" ^
-          --collect-all streamlit ^
-          1_📈_Dashboard.py
+        run: pyinstaller --onefile --windowed --name "CryptoTracker" --collect-all streamlit 1_📈_Dashboard.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
