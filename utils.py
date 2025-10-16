@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 import requests
+import time
 
 # --- Initial Data and Constants ---
-def initialize_transactions():
+def initialize_state():
     if 'transactions' not in st.session_state:
         st.session_state.transactions = pd.DataFrame([
             # Sample data remains the same...
@@ -29,6 +30,13 @@ def initialize_transactions():
             },
         ])
         st.session_state.transactions['transaction_date'] = pd.to_datetime(st.session_state.transactions['transaction_date'])
+    
+    # Initialize price state
+    if 'prices' not in st.session_state:
+        st.session_state.prices = {}
+    if 'last_price_fetch' not in st.session_state:
+        st.session_state.last_price_fetch = 0
+
 
 TRANSACTION_TYPE_LABELS = {
   "buy_usdt_with_toman": "Buy USDT", "buy_crypto_with_usdt": "Buy Crypto",
@@ -54,12 +62,16 @@ def delete_transaction(transaction_id):
     df = st.session_state.transactions
     st.session_state.transactions = df[df['id'] != transaction_id]
 
-# --- NEW: Real-time Price Fetching ---
-@st.cache_data(ttl=300) # Cache data for 5 minutes
-def get_crypto_prices(symbols):
+# --- NEW: Robust Price Fetching Logic ---
+def update_prices_in_state(symbols, force_refresh=False):
+    now = time.time()
+    # Update if it's been more than 5 minutes or if manually forced
+    if not force_refresh and (now - st.session_state.last_price_fetch) < 300:
+        return
+
     if not symbols:
-        return {}
-    # Map symbols to coingecko IDs
+        return
+
     symbol_to_id = {
         'BTC': 'bitcoin', 'ETH': 'ethereum', 'BNB': 'binancecoin', 'SOL': 'solana',
         'XRP': 'ripple', 'USDC': 'usd-coin', 'ADA': 'cardano', 'DOGE': 'dogecoin',
@@ -67,27 +79,34 @@ def get_crypto_prices(symbols):
     }
     ids = [symbol_to_id[s] for s in symbols if s in symbol_to_id]
     if not ids:
-        return {}
+        return
         
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={','.join(ids)}&vs_currencies=usd"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10) # Add a timeout
         response.raise_for_status()
         data = response.json()
-        # Map back from ID to symbol
+        
+        # Update prices in session state
         prices = {symbol: data[id]['usd'] for symbol, id in symbol_to_id.items() if id in data}
-        prices['USDT'] = 1.0 # USDT is always 1 USD
-        return prices
-    except requests.exceptions.RequestException as e:
-        st.error(f"Could not fetch crypto prices: {e}")
-        return {}
+        prices['USDT'] = 1.0
+        st.session_state.prices.update(prices) # Use update to keep old prices if some fail
+        st.session_state.last_price_fetch = now # Update timestamp only on success
+        if force_refresh:
+            st.toast("Prices updated successfully!", icon="✅")
 
-# --- NEW: Core Logic for Portfolio and P/L ---
-def get_full_portfolio_analysis(transactions):
+    except requests.exceptions.RequestException:
+        # If fetching fails, do nothing. The app will use the old prices.
+        if force_refresh:
+            st.toast("Failed to update prices. Check internet connection.", icon="❌")
+
+
+# --- Core Logic for Portfolio and P/L ---
+def get_full_portfolio_analysis(transactions, prices): # Now accepts prices as an argument
     if transactions.empty:
         return pd.DataFrame()
 
-    # 1. Calculate current balances (same as before)
+    # 1. Calculate current balances
     gains = transactions[['person_name', 'output_currency', 'output_amount']].rename(columns={'output_currency': 'currency', 'output_amount': 'amount'})
     losses = transactions[['person_name', 'input_currency', 'input_amount']].rename(columns={'input_currency': 'currency', 'input_amount': 'amount'})
     losses['amount'] = -losses['amount']
@@ -95,7 +114,7 @@ def get_full_portfolio_analysis(transactions):
     portfolio = all_movements.groupby(['person_name', 'currency'])['amount'].sum().reset_index()
     portfolio = portfolio[portfolio['amount'] > 1e-9]
 
-    # 2. Calculate cost basis for crypto assets bought with USDT
+    # 2. Calculate cost basis
     buy_crypto_tx = transactions[transactions['transaction_type'] == 'buy_crypto_with_usdt'].copy()
     if not buy_crypto_tx.empty:
         cost_basis = buy_crypto_tx.groupby(['person_name', 'output_currency']).agg(
@@ -104,26 +123,18 @@ def get_full_portfolio_analysis(transactions):
         ).reset_index()
         cost_basis = cost_basis.rename(columns={'output_currency': 'currency'})
         cost_basis['avg_buy_price'] = cost_basis['total_cost_usd'] / cost_basis['total_amount_crypto']
-        
-        # Merge cost basis into portfolio
         portfolio = pd.merge(portfolio, cost_basis[['person_name', 'currency', 'avg_buy_price']], on=['person_name', 'currency'], how='left')
     else:
         portfolio['avg_buy_price'] = pd.NA
 
-    # 3. Get live prices
-    crypto_symbols = portfolio['currency'].unique().tolist()
-    prices = get_crypto_prices(crypto_symbols)
-    
+    # 3. Use the provided prices for analysis
     if prices:
         portfolio['current_price'] = portfolio['currency'].map(prices)
         portfolio['current_value_usd'] = portfolio['amount'] * portfolio['current_price']
-        
-        # Calculate P/L
         portfolio['total_cost_of_current_holdings'] = portfolio['amount'] * portfolio['avg_buy_price']
         portfolio['pnl_usd'] = portfolio['current_value_usd'] - portfolio['total_cost_of_current_holdings']
     
     return portfolio.fillna(0)
-
 
 # --- Formatting ---
 def format_currency(amount, currency):
