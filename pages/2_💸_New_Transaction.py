@@ -42,6 +42,7 @@ if transaction_type == "Buy":
             amount_crypto = c2.number_input("Amount of Crypto Received", min_value=0.0, format="%.8f")
             fee = st.number_input("Explicit Fee (in USDT, if any)", min_value=0.0, format="%.8f")
             notes = st.text_area("Notes (Optional)")
+            # Show fee if entered
             if fee > 0:
                 st.info(f"Explicit Fee to be saved: {fee:,.8f} USDT")
             if st.form_submit_button("Save Transaction"):
@@ -77,6 +78,7 @@ else: # Sell or Swap
         output_amount = c2.number_input("Amount Received", min_value=0.0, format="%.8f")
         fee = st.number_input("Explicit Fee (in USD, if any)", min_value=0.0, format="%.8f")
         notes = st.text_area("Notes (Optional)")
+        # Show fee if entered
         if fee > 0:
             st.info(f"Explicit Fee to be saved: {fee:,.8f} USD")
         if st.form_submit_button("Save Transaction"):
