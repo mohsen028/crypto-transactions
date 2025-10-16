@@ -1,8 +1,3 @@
-### **مرحله ۲: کد نهایی و کامل `pages/2_💸_New_Transaction.py` (با پیش‌نمایش کارمزد)**
-
-این کد، کادر آبی رنگ پیش‌نمایش کارمزد را به تمام فرم‌های مربوطه بازمی‌گرداند.
-
-```python
 import streamlit as st
 import pandas as pd
 import datetime
@@ -35,7 +30,7 @@ if transaction_type == "Buy":
             if st.form_submit_button("Save Transaction"):
                 form_data.update({"transaction_type": "buy_usdt_with_toman", "input_currency": "IRR", "output_currency": "USDT", "input_amount": amount_toman, "output_amount": amount_usdt, "rate": usdt_rate, "notes": notes, "fee": 0})
                 add_transaction(form_data); st.success("Transaction Saved!")
-    else: # Buy Crypto with USDT
+    else:
         with st.form("buy_crypto_form"):
             st.subheader("Buy Crypto with USDT")
             crypto_to_buy = st.selectbox("Crypto to Buy", CRYPTOS)
