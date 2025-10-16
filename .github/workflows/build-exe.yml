@@ -35,7 +35,7 @@ jobs:
 
       # مرحله پنجم و اصلی: ساخت فایل exe
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --windowed --name "CryptoTracker" Hello.py
+        run: pyinstaller --onefile --windowed --name "CryptoTracker" 1_📈_Dashboard.py
 
       # مرحله ششم و نهایی: آپلود فایل exe ساخته شده به عنوان یک فایل قابل دانلود
       - name: Upload artifact
