@@ -26,10 +26,10 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # --- THE FINAL, HOOK-BASED BUILD COMMAND ---
-      # We are now telling PyInstaller to use our custom hook file.
+      # --- DEBUGGING CHANGE: We removed "--windowed" ---
+      # This will force a console window to open and show us any errors.
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --windowed --name "CryptoTracker" --additional-hooks-dir hooks 1_📈_Dashboard.py
+        run: pyinstaller --onefile --name "CryptoTracker" --additional-hooks-dir hooks 1_📈_Dashboard.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
