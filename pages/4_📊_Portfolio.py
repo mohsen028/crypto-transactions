@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils import get_all_transactions, get_full_portfolio_analysis
 
-st.set_page_config(page_title="Detailed Portfolio", icon="📊", layout="wide")
+st.set_page_config(page_title="Detailed Portfolio", icon=":bar_chart:", layout="wide")
 
 st.title("📊 Detailed Portfolio View")
 st.markdown("A detailed breakdown of assets, costs, and current market value for everyone.")
