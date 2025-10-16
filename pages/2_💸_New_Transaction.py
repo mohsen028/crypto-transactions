@@ -13,6 +13,7 @@ st.markdown("---")
 
 form_data = {"person_name": person_name, "transaction_date": pd.to_datetime(transaction_date)}
 
+# --- BUY FORM ---
 if transaction_type == "Buy":
     buy_type = st.radio("What are you buying with?", ["Toman (IRR)", "USDT"], horizontal=True)
     if buy_type == "Toman (IRR)":
@@ -24,13 +25,11 @@ if transaction_type == "Buy":
             amount_usdt = c1.number_input("Amount of USDT Received", min_value=0.0, format="%.8f")
             usdt_rate = c2.number_input("Stated USDT Rate in Toman", min_value=0, step=500, format="%d")
             notes = st.text_area("Notes (Optional)")
-            
             fee_usd = 0
             if amount_toman > 0 and usdt_rate > 0 and amount_usdt > 0:
                 usdt_should_have_received = amount_toman / usdt_rate
                 fee_usd = usdt_should_have_received - amount_usdt
                 st.info(f"Calculated Hidden Fee: {fee_usd:,.4f} USDT")
-            
             if st.form_submit_button("Save Transaction"):
                 form_data.update({"input_amount": amount_toman, "output_amount": amount_usdt, "rate": usdt_rate, "notes": notes, "fee": fee_usd})
                 add_transaction(form_data); st.success("Transaction Saved!")
@@ -44,10 +43,14 @@ if transaction_type == "Buy":
             amount_crypto = c2.number_input("Amount of Crypto Received", min_value=0.0, format="%.8f")
             fee = st.number_input("Explicit Fee (in USDT, if any)", min_value=0.0, format="%.8f")
             notes = st.text_area("Notes (Optional)")
+            # --- NEW: Display fee if entered ---
+            if fee > 0:
+                st.info(f"Explicit Fee: {fee:,.8f} USDT")
             if st.form_submit_button("Save Transaction"):
                 form_data.update({"output_currency": crypto_to_buy, "input_amount": amount_usdt, "output_amount": amount_crypto, "fee": fee, "notes": notes})
                 add_transaction(form_data); st.success("Transaction Saved!")
-# ... (بقیه فرم‌ها با دقت اعشار بالاتر)
+
+# --- TRANSFER FORM ---
 elif transaction_type == "Transfer":
     st.subheader("Transfer Currency")
     form_data["transaction_type"] = "transfer"
@@ -57,11 +60,16 @@ elif transaction_type == "Transfer":
         amount_sent = c1.number_input("Amount Sent", min_value=0.0, format="%.8f")
         amount_received = c2.number_input("Amount Received", min_value=0.0, format="%.8f")
         notes = st.text_area("Notes (Optional)")
+        fee = 0
+        if amount_sent > 0 and amount_received >= 0 and amount_sent > amount_received:
+            fee = amount_sent - amount_received
+            st.info(f"Calculated Transfer Fee: {fee:,.8f} {currency}")
         if st.form_submit_button("Save Transaction"):
-            # Fee will be calculated later in utils
-            form_data.update({"input_currency": currency, "output_currency": currency, "input_amount": amount_sent, "output_amount": amount_received, "notes": notes, "fee": 0})
+            form_data.update({"input_currency": currency, "output_currency": currency, "input_amount": amount_sent, "output_amount": amount_received, "notes": notes, "fee": fee})
             add_transaction(form_data); st.success("Transaction Saved!")
-else: # Sell or Swap
+
+# --- SELL & SWAP Forms ---
+else:
     form_data.update({"transaction_type": "sell" if transaction_type == "Sell" else "swap"})
     with st.form("sell_swap_form"):
         st.subheader(f"{transaction_type} Crypto")
@@ -73,6 +81,9 @@ else: # Sell or Swap
         output_amount = c2.number_input("Amount Received", min_value=0.0, format="%.8f")
         fee = st.number_input("Explicit Fee (in USD, if any)", min_value=0.0, format="%.8f")
         notes = st.text_area("Notes (Optional)")
+        # --- NEW: Display fee if entered ---
+        if fee > 0:
+            st.info(f"Explicit Fee: {fee:,.8f} USD")
         if st.form_submit_button("Save Transaction"):
             form_data.update({"input_currency": input_currency, "output_currency": output_currency, "input_amount": input_amount, "output_amount": output_amount, "fee": fee, "notes": notes})
             add_transaction(form_data); st.success("Transaction Saved!")
