@@ -26,10 +26,19 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # --- THIS IS THE CORRECTED STEP ---
-      # We are adding a "--hidden-import" flag to explicitly include Streamlit
+      # --- THE FINAL, COMPREHENSIVE BUILD COMMAND ---
+      # We are now explicitly listing all of Streamlit's tricky dependencies
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --windowed --name "CryptoTracker" --hidden-import streamlit 1_📈_Dashboard.py
+        run: |
+          pyinstaller --onefile --windowed --name "CryptoTracker" \
+          --hidden-import "streamlit" \
+          --hidden-import "altair" \
+          --hidden-import "pandas" \
+          --hidden-import "pydeck" \
+          --hidden-import "watchdog" \
+          --hidden-import "tornado" \
+          --hidden-import "requests" \
+          1_📈_Dashboard.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
