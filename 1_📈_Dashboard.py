@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils import initialize_transactions, get_all_transactions, get_full_portfolio_analysis
 
-st.set_page_config(page_title="Crypto Dashboard", icon=":chart_with_upwards_trend:", layout="wide")
+st.set_page_config(page_title="Crypto Dashboard", layout="wide")
 
 # Initialize and load data
 initialize_transactions()
