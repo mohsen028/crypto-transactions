@@ -1,20 +1,39 @@
 import streamlit as st
 import pandas as pd
-from utils import get_all_transactions, get_full_portfolio_analysis
+import time
+from utils import initialize_state, get_all_transactions, get_full_portfolio_analysis, update_prices_in_state
 
 st.set_page_config(page_title="Detailed Portfolio", layout="wide")
+
+# Initialize state if not already done
+initialize_state()
+transactions = get_all_transactions()
 
 st.title("📊 Detailed Portfolio View")
 st.markdown("A detailed breakdown of assets, costs, and current market value for everyone.")
 
-transactions = get_all_transactions()
 if transactions.empty:
-    st.warning("No transactions recorded yet.")
+    st.warning("No transactions recorded yet. Add a new transaction to see data.")
     st.stop()
+    
+# --- Price Update Section (Consistent with Dashboard) ---
+all_symbols = transactions['input_currency'].unique().tolist() + transactions['output_currency'].unique().tolist()
+unique_symbols = list(set(s for s in all_symbols if s not in ['IRR', None]))
 
-analysis_df = get_full_portfolio_analysis(transactions)
+update_prices_in_state(unique_symbols)
+if st.button("🔄 Refresh Live Prices"):
+    update_prices_in_state(unique_symbols, force_refresh=True)
+
+last_update = st.session_state.get('last_price_fetch', 0)
+if last_update > 0:
+    st.caption(f"Prices last updated: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_update))}")
+
+# --- Perform Analysis with available prices ---
+prices = st.session_state.get('prices', {})
+analysis_df = get_full_portfolio_analysis(transactions, prices)
+
 if analysis_df.empty:
-    st.info("No assets with a positive balance.")
+    st.info("No assets with a positive balance to analyze.")
     st.stop()
 
 people = analysis_df['person_name'].unique()
@@ -22,8 +41,6 @@ for person in people:
     with st.container(border=True):
         st.markdown(f"### {person.capitalize()}'s Portfolio")
         person_df = analysis_df[analysis_df['person_name'] == person].copy()
-
-        # Filter out non-crypto assets for P/L view
         person_crypto_df = person_df[person_df['currency'] != 'IRR']
         
         st.dataframe(
@@ -38,6 +55,5 @@ for person in people:
                 "current_value_usd": st.column_config.NumberColumn("Market Value", format="$%.2f"),
                 "pnl_usd": st.column_config.NumberColumn("Floating P/L", format="$%.2f"),
             },
-            # Hide columns we don't need for the view
             column_order=("currency", "amount", "current_value_usd", "pnl_usd", "avg_buy_price", "current_price")
         )
