@@ -28,7 +28,7 @@ last_update = st.session_state.get('last_price_fetch', 0)
 if last_update > 0:
     st.caption(f"Prices last updated: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_update))}")
     
-st.caption("Price data provided by CoinGecko. There may be slight differences from exchange prices.")
+st.caption("Price data provided by CoinGecko.")
 
 # --- Perform Analysis with available prices ---
 prices = st.session_state.get('prices', {})
