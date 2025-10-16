@@ -4,26 +4,34 @@ from utils import initialize_state, get_all_transactions, delete_transaction, TR
 
 st.set_page_config(page_title="Transaction History", layout="wide")
 
-# --- NEW: CSS for the new design ---
+# --- NEW: CSS for the new Badge design ---
 st.markdown("""
 <style>
-/* A general class for the text with the color bar */
-.tx-type-text {
-    padding-left: 10px; /* Space between bar and text */
-    border-left-width: 5px; /* Thickness of the bar */
-    border-left-style: solid;
+/* Style for the small transaction type badge */
+.tx-badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.375rem; /* More rounded corners */
+    text-transform: uppercase;
 }
-/* Specific color classes */
-.buy-text { border-left-color: #28a745; } /* Green */
-.sell-text { border-left-color: #dc3545; } /* Red */
-.transfer-text { border-left-color: #ffc107; } /* Yellow */
-.swap-text { border-left-color: #007bff; } /* Blue */
+/* Color variations for the badge */
+.buy-badge { background-color: rgba(40, 167, 69, 0.2); color: #28a745; }
+.sell-badge { background-color: rgba(220, 53, 69, 0.2); color: #dc3545; }
+.transfer-badge { background-color: rgba(255, 193, 7, 0.2); color: #ffc107; }
+.swap-badge { background-color: rgba(0, 123, 255, 0.2); color: #007bff; }
 </style>
 """, unsafe_allow_html=True)
 
-TYPE_TO_CLASS = {
-    "buy_usdt_with_toman": "buy-text", "buy_crypto_with_usdt": "buy-text",
-    "sell": "sell-text", "transfer": "transfer-text", "swap": "swap-text"
+# Map transaction types to the new badge CSS classes
+TYPE_TO_BADGE_CLASS = {
+    "buy_usdt_with_toman": "buy-badge", "buy_crypto_with_usdt": "buy-badge",
+    "sell": "sell-badge", "transfer": "transfer-badge", "swap": "swap-badge"
 }
 
 initialize_state()
@@ -51,16 +59,27 @@ else:
     portfolio_df, _, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
     
     for index, row in transactions.iterrows():
-        # --- MODIFIED: Each transaction is now in its own clean container ---
+        # Each transaction is now in its own clean container
         with st.container(border=True):
             c1, c2, c3 = st.columns([4, 4, 2])
+            
+            # --- MODIFIED: New title layout in the first column ---
             with c1:
+                # Prepare the badge
                 type_label = TRANSACTION_TYPE_LABELS.get(row['transaction_type'], 'N/A')
-                css_class = f"tx-type-text {TYPE_TO_CLASS.get(row['transaction_type'], '')}"
+                badge_class = TYPE_TO_BADGE_CLASS.get(row['transaction_type'], '')
+                badge_html = f'<span class="tx-badge {badge_class}">{type_label}</span>'
                 
-                # Apply the CSS class to the title text
-                st.markdown(f'<div class="{css_class}">**{type_label}** by **{row["person_name"].capitalize()}**</div>', unsafe_allow_html=True)
+                # Use columns for alignment
+                title_col, badge_col = st.columns([2, 3])
+                with title_col:
+                    st.markdown(f"#### {row['person_name'].capitalize()}")
+                with badge_col:
+                    st.markdown(badge_html, unsafe_allow_html=True)
+
                 st.caption(f"Date: {pd.to_datetime(row['transaction_date']).strftime('%Y-%m-%d')}")
+            
+            # --- Second and third columns remain the same ---
             with c2:
                 st.markdown(f"**Input:** {row.get('input_amount', 0):,.8f} {row['input_currency']}")
                 st.markdown(f"**Output:** {row.get('output_amount', 0):,.8f} {row['output_currency']}")
