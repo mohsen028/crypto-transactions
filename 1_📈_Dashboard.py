@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import time
-from utils import initialize_state, get_all_transactions, update_prices_in_state, generate_financial_analysis
+from utils import initialize_state, get_all_transactions, update_prices_in_state, generate_financial_analysis, TRANSACTION_TYPE_LABELS
 
 st.set_page_config(page_title="Crypto Dashboard", layout="wide")
 initialize_state()
 transactions = get_all_transactions()
 st.title("📈 Crypto Financial Dashboard")
-# ... (بخش آپدیت قیمت بدون تغییر)
+
+# --- Price Update Section (No change) ---
 all_symbols = pd.concat([transactions['input_currency'], transactions['output_currency']]).dropna().unique()
 unique_symbols = [s for s in all_symbols if s != 'IRR']
 update_prices_in_state(unique_symbols)
@@ -22,11 +23,11 @@ portfolio_df, toman_stats_df, realized_pnl_df, fee_summary_df = generate_financi
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Floating P/L", "💰 Realized P/L", "🇮🇷 Toman Exchange", "💸 Fee Analysis"])
 
-# ... (تب‌های ۱، ۲ و ۳ بدون تغییر)
+# --- Tabs 1, 2, 3 (No change) ---
 with tab1:
     st.subheader("Current Portfolio & Floating Profit/Loss")
     if portfolio_df.empty: st.info("No current holdings to analyze.")
-    else: # ... (کد نمایش پرتفوی)
+    else:
         pnl_summary = portfolio_df.groupby('person_name').agg(total_value=('current_value_usd', 'sum'), total_cost=('total_cost_of_holdings', 'sum')).reset_index()
         pnl_summary['floating_pnl'] = pnl_summary['total_value'] - pnl_summary['total_cost']
         for _, row in pnl_summary.iterrows():
@@ -57,8 +58,21 @@ with tab4:
             column_config={"person_name": "Person", "total_fee": st.column_config.NumberColumn("Total Fees Paid (USD)", format="$%.2f")},
             hide_index=True, use_container_width=True
         )
+        
         with st.expander("See detailed breakdown"):
-            st.dataframe(fee_summary_df,
-                column_config={"person_name": "Person", "transaction_type": "Transaction Type", "fee": st.column_config.NumberColumn("Fee (USD)", format="$%.2f")},
+            # --- THIS IS THE MODIFIED PART ---
+            # 1. Create a copy for display purposes
+            display_fees = fee_summary_df.copy()
+            
+            # 2. Map the internal transaction types to human-readable labels
+            display_fees['transaction_type'] = display_fees['transaction_type'].map(TRANSACTION_TYPE_LABELS).fillna(display_fees['transaction_type'])
+            
+            # 3. Display the new, cleaner dataframe
+            st.dataframe(display_fees,
+                column_config={
+                    "person_name": "Person",
+                    "transaction_type": "Transaction Type", # This now shows the friendly name
+                    "fee": st.column_config.NumberColumn("Fee (USD)", format="$%.2f")
+                },
                 hide_index=True, use_container_width=True
             )
