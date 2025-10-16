@@ -5,6 +5,21 @@ from utils import initialize_state, get_all_transactions, update_prices_in_state
 
 st.set_page_config(page_title="Detailed Portfolio", layout="wide")
 
+# --- NEW: Helper function for coloring P/L values ---
+def color_pnl(val):
+    """
+    Takes a scalar and returns a string with
+    the css property `'color: red'` for negative
+    numbers, `'color: green'` for positive numbers, and black for zero.
+    """
+    if pd.isna(val) or not isinstance(val, (int, float)):
+        return '' # Return no style for non-numeric or NaN values
+        
+    color = 'red' if val < 0 else '#28a745' if val > 0 else 'gray'
+    return f'color: {color}'
+
+# ---------------------------------------------------------
+
 # Initialize state if not already done
 initialize_state()
 transactions = get_all_transactions()
@@ -45,12 +60,18 @@ for person in people:
         
         person_df = portfolio_df[portfolio_df['person_name'] == person].copy()
         
-        # Calculate P/L Percentage
-        # Handle division by zero case
         person_df['floating_pnl_percent'] = (person_df['floating_pnl_usd'] / person_df['total_cost_of_holdings'].replace(0, pd.NA)) * 100
         
+        # --- NEW: Apply the styling here ---
+        # We apply the color_pnl function to the two P/L columns.
+        styled_df = person_df.style.applymap(
+            color_pnl,
+            subset=['floating_pnl_usd', 'floating_pnl_percent']
+        )
+        # ------------------------------------
+
         st.dataframe(
-            person_df,
+            styled_df, # Pass the styled dataframe instead of the raw one
             hide_index=True,
             use_container_width=True,
             column_config={
