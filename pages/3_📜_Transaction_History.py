@@ -13,11 +13,8 @@ if transactions.empty:
     st.warning("No transactions found.")
     st.stop()
     
-# We need the analysis to get cost basis for sales
-portfolio_df, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
-
-# --- Filtering UI in Sidebar ---
-# ... (You can add filters here later if needed)
+# --- FIX: Unpack FOUR items instead of three ---
+portfolio_df, _, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
 
 for index, row in transactions.iterrows():
     with st.container(border=True):
@@ -28,21 +25,21 @@ for index, row in transactions.iterrows():
             st.caption(f"Date: {row['transaction_date'].strftime('%Y-%m-%d')}")
         
         with col2:
-            in_amount = f"{row['input_amount']:,.6f}".rstrip('0').rstrip('.')
-            out_amount = f"{row['output_amount']:,.6f}".rstrip('0').rstrip('.')
+            in_amount = f"{row.get('input_amount', 0):,.6f}".rstrip('0').rstrip('.')
+            out_amount = f"{row.get('output_amount', 0):,.6f}".rstrip('0').rstrip('.')
             st.markdown(f"**Input:** {in_amount} {row['input_currency']}")
             st.markdown(f"**Output:** {out_amount} {row['output_currency']}")
 
-            # --- NEW: Show P/L on Sell Transactions ---
             if row['transaction_type'] == 'sell':
                 person_assets = portfolio_df[(portfolio_df['person_name'] == row['person_name']) & (portfolio_df['currency'] == row['input_currency'])]
                 if not person_assets.empty:
                     avg_buy_price = person_assets.iloc[0]['avg_buy_price']
-                    cost_of_goods = row['input_amount'] * avg_buy_price
-                    fee = row.get('fee', 0)
-                    pnl = row['output_amount'] - cost_of_goods - fee
-                    pnl_color = "green" if pnl >= 0 else "red"
-                    st.markdown(f"**<span style='color:{pnl_color};'>Realized P/L: ${pnl:,.2f}</span>**", unsafe_allow_html=True)
+                    if avg_buy_price > 0: # Avoid division by zero if cost is unknown
+                        cost_of_goods = row['input_amount'] * avg_buy_price
+                        fee = row.get('fee', 0)
+                        pnl = row['output_amount'] - cost_of_goods - fee
+                        pnl_color = "green" if pnl >= 0 else "red"
+                        st.markdown(f"**<span style='color:{pnl_color};'>Realized P/L: ${pnl:,.2f}</span>**", unsafe_allow_html=True)
 
         with col3:
             if st.button("Delete", key=f"delete_{row['id']}", type="primary"):
