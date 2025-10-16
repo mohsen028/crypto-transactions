@@ -8,11 +8,16 @@ initialize_state()
 transactions = get_all_transactions()
 st.title("📈 Crypto Financial Dashboard")
 
-# --- Price Update Section (No change) ---
-all_symbols = pd.concat([transactions['input_currency'], transactions['output_currency']]).dropna().unique()
-unique_symbols = [s for s in all_symbols if s != 'IRR']
+# --- FIX: Handle empty transactions DataFrame ---
+unique_symbols = []
+if not transactions.empty:
+    all_symbols = pd.concat([transactions['input_currency'], transactions['output_currency']]).dropna().unique()
+    unique_symbols = [s for s in all_symbols if s != 'IRR']
+
 update_prices_in_state(unique_symbols)
 if st.button("🔄 Refresh Live Prices"): update_prices_in_state(unique_symbols, force_refresh=True)
+
+# ... بقیه کد بدون تغییر باقی می‌ماند
 last_update = st.session_state.get('last_price_fetch', 0)
 if last_update > 0: st.caption(f"Prices last updated: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_update))}")
 st.caption("Price data provided by CoinGecko.")
@@ -23,7 +28,6 @@ portfolio_df, toman_stats_df, realized_pnl_df, fee_summary_df = generate_financi
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Floating P/L", "💰 Realized P/L", "🇮🇷 Toman Exchange", "💸 Fee Analysis"])
 
-# --- Tabs 1, 2, 3 (No change) ---
 with tab1:
     st.subheader("Current Portfolio & Floating Profit/Loss")
     if portfolio_df.empty: st.info("No current holdings to analyze.")
@@ -46,7 +50,6 @@ with tab3:
     if toman_stats_df.empty: st.info("No Toman-to-USDT transactions recorded.")
     else: st.dataframe(toman_stats_df, column_config={"person_name": "Person", "total_toman_paid": st.column_config.NumberColumn("Total Toman Paid", format="%,.0f Toman"), "total_usdt_received": st.column_config.NumberColumn("Total USDT Received", format="%.2f USDT"), "avg_usdt_cost": st.column_config.NumberColumn("Avg. Cost per USDT", format="%,.0f Toman")}, hide_index=True, use_container_width=True)
 
-# --- NEW: Improved Fee Analysis Tab ---
 with tab4:
     st.subheader("Comprehensive Fee Breakdown (in USD)")
     if fee_summary_df.empty:
@@ -54,25 +57,8 @@ with tab4:
     else:
         total_fees_per_person = fee_summary_df.groupby('person_name')['fee'].sum().reset_index().rename(columns={'fee': 'total_fee'})
         st.markdown("#### Total Fees Per Person")
-        st.dataframe(total_fees_per_person,
-            column_config={"person_name": "Person", "total_fee": st.column_config.NumberColumn("Total Fees Paid (USD)", format="$%.2f")},
-            hide_index=True, use_container_width=True
-        )
-        
+        st.dataframe(total_fees_per_person, column_config={"person_name": "Person", "total_fee": st.column_config.NumberColumn("Total Fees Paid (USD)", format="$%.2f")}, hide_index=True, use_container_width=True)
         with st.expander("See detailed breakdown"):
-            # --- THIS IS THE MODIFIED PART ---
-            # 1. Create a copy for display purposes
             display_fees = fee_summary_df.copy()
-            
-            # 2. Map the internal transaction types to human-readable labels
             display_fees['transaction_type'] = display_fees['transaction_type'].map(TRANSACTION_TYPE_LABELS).fillna(display_fees['transaction_type'])
-            
-            # 3. Display the new, cleaner dataframe
-            st.dataframe(display_fees,
-                column_config={
-                    "person_name": "Person",
-                    "transaction_type": "Transaction Type", # This now shows the friendly name
-                    "fee": st.column_config.NumberColumn("Fee (USD)", format="$%.2f")
-                },
-                hide_index=True, use_container_width=True
-            )
+            st.dataframe(display_fees, column_config={"person_name": "Person", "transaction_type": "Transaction Type", "fee": st.column_config.NumberColumn("Fee (USD)", format="$%.2f")}, hide_index=True, use_container_width=True)
