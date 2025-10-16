@@ -40,7 +40,7 @@ if transaction_type == "Buy":
         
         with st.form("buy_usdt_form"):
             col1, col2 = st.columns(2)
-            form_data["input_amount"] = col1.number_input("Amount in Toman (IRR)", min_value=0.0, step=1000.0, format="%.2f")
+            form_data["input_amount"] = col1.number_input("Amount in Toman (IRR)", min_value=0, step=100000, format="%d")
             form_data["output_amount"] = col2.number_input("Amount of USDT Received", min_value=0.0, step=0.01, format="%.2f")
             form_data["rate"] = st.number_input("USDT Rate in Toman", min_value=0.0, step=100.0, format="%.2f")
             
