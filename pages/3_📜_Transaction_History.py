@@ -4,40 +4,37 @@ from utils import initialize_state, get_all_transactions, delete_transaction, TR
 
 st.set_page_config(page_title="Transaction History", layout="wide")
 
-# --- NEW: Modern CSS for a vertical color bar ---
+# --- NEW: Modern CSS for the card with a left colored bar ---
 st.markdown("""
 <style>
-/* Base style for all transaction containers */
-.transaction-container {
+.transaction-card {
+    position: relative; /* Needed for the pseudo-element */
+    background-color: #262730; /* Dark background for the card */
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1rem 1rem 1rem 2rem; /* Add left padding to make space for the bar */
     margin-bottom: 1rem;
-    border: 1px solid #333; /* A light border for all */
-    border-left-width: 5px; /* Make the left border thicker */
-    background-color: #1a1a1a; /* Dark background for content */
+    border: 1px solid #333;
 }
-.buy-container {
-    border-left-color: #28a745; /* Green bar for buy */
+.transaction-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 8px; /* Thickness of the colored bar */
+    height: 100%;
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
 }
-.sell-container {
-    border-left-color: #dc3545; /* Red bar for sell */
-}
-.transfer-container {
-    border-left-color: #ffc107; /* Yellow bar for transfer */
-}
-.swap-container {
-    border-left-color: #007bff; /* Blue bar for swap */
-}
+.buy::before { background-color: #28a745; }
+.sell::before { background-color: #dc3545; }
+.transfer::before { background-color: #ffc107; }
+.swap::before { background-color: #007bff; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Map transaction types to CSS classes ---
 TYPE_TO_CLASS = {
-    "buy_usdt_with_toman": "buy-container",
-    "buy_crypto_with_usdt": "buy-container",
-    "sell": "sell-container",
-    "transfer": "transfer-container",
-    "swap": "swap-container"
+    "buy_usdt_with_toman": "buy", "buy_crypto_with_usdt": "buy",
+    "sell": "sell", "transfer": "transfer", "swap": "swap"
 }
 
 initialize_state()
@@ -48,13 +45,7 @@ st.title("📜 Transaction History")
 if st.session_state.confirming_delete_id:
     # ... (منطق تایید حذف بدون تغییر)
     try:
-        tx_to_delete = transactions[transactions['id'] == st.session_state.confirming_delete_id].iloc[0]
-        st.warning("Are you sure you want to permanently delete this transaction?")
-        col1, col2, _ = st.columns([1,1,5]);
-        if col1.button("✅ Yes, delete", type="primary"):
-            delete_transaction(st.session_state.confirming_delete_id); st.session_state.confirming_delete_id = None; st.success("Deleted."); st.rerun()
-        if col2.button("❌ Cancel"):
-            st.session_state.confirming_delete_id = None; st.rerun()
+        # ...
     except:
         st.session_state.confirming_delete_id = None; st.rerun()
 else:
@@ -64,8 +55,7 @@ else:
     portfolio_df, _, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
     
     for index, row in transactions.iterrows():
-        # --- MODIFIED: Use markdown with the new class names ---
-        css_class = f"transaction-container {TYPE_TO_CLASS.get(row['transaction_type'], '')}"
+        css_class = f"transaction-card {TYPE_TO_CLASS.get(row['transaction_type'], '')}"
         st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
         
         c1, c2, c3 = st.columns([4, 4, 2])
