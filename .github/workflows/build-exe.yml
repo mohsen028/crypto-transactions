@@ -26,10 +26,10 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # --- THE FINAL, SINGLE-LINE BUILD COMMAND ---
-      # The command is now on one single line to avoid shell syntax errors.
+      # --- THE FINAL, HOOK-BASED BUILD COMMAND ---
+      # We are now telling PyInstaller to use our custom hook file.
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --windowed --name "CryptoTracker" --hidden-import "streamlit" --hidden-import "altair" --hidden-import "pandas" --hidden-import "pydeck" --hidden-import "watchdog" --hidden-import "tornado" --hidden-import "requests" 1_📈_Dashboard.py
+        run: pyinstaller --onefile --windowed --name "CryptoTracker" --additional-hooks-dir hooks 1_📈_Dashboard.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
