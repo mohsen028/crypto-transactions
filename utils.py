@@ -60,7 +60,6 @@ def delete_transaction(transaction_id):
     _save_transactions()
 
 def update_prices_in_state(symbols, force_refresh=False):
-    # ... (این تابع بدون تغییر باقی می‌ماند)
     now = time.time()
     if not force_refresh and (now - st.session_state.last_price_fetch) < 300: return
     if not symbols: return
@@ -79,41 +78,32 @@ def update_prices_in_state(symbols, force_refresh=False):
     except requests.exceptions.RequestException:
         if force_refresh: st.toast("Failed to update prices.", icon="❌")
 
-# --- The Final, Corrected Analysis Function ---
+# --- The Final, Truly Corrected Analysis Function ---
 def generate_financial_analysis(transactions, prices):
     if transactions.empty: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     
     tx = _ensure_data_types(transactions.copy())
-    
-    # --- Fee Calculation Stage ---
-    # We create a new column `calculated_fee` to avoid overwriting user's explicit fee
-    tx['calculated_fee'] = tx['fee'] # Start with the explicit fee
+    tx['calculated_fee'] = tx['fee'] 
 
-    # 1. Toman Buy Fee (in USD)
     toman_mask = tx['transaction_type'] == 'buy_usdt_with_toman'
     if toman_mask.any():
         rate = tx.loc[toman_mask, 'rate']
         hidden_fee_usd = (tx.loc[toman_mask, 'input_amount'] / rate.replace(0, pd.NA)) - tx.loc[toman_mask, 'output_amount']
         tx.loc[toman_mask, 'calculated_fee'] = hidden_fee_usd.fillna(0)
 
-    # 2. Transfer Fee (in USD)
     transfer_mask = tx['transaction_type'] == 'transfer'
     if transfer_mask.any():
         fee_amount = tx.loc[transfer_mask, 'input_amount'] - tx.loc[transfer_mask, 'output_amount']
         fee_currency_price = tx.loc[transfer_mask, 'input_currency'].map(prices).fillna(1.0)
         tx.loc[transfer_mask, 'calculated_fee'] = fee_amount * fee_currency_price
 
-    # 3. *** NEW: Swap Fee/Slippage Calculation (in USD) ***
-    swap_mask = tx['transaction_type'] == 'swap'
-    if swap_mask.any() and prices:
-        value_given_usd = tx.loc[swap_mask, 'input_amount'] * tx.loc[swap_mask, 'input_currency'].map(prices).fillna(0)
-        value_received_usd = tx.loc[swap_mask, 'output_amount'] * tx.loc[swap_mask, 'output_currency'].map(prices).fillna(0)
+    # --- MODIFIED: Combine Sell and Swap for unified slippage calculation ---
+    disposal_mask = tx['transaction_type'].isin(['swap', 'sell'])
+    if disposal_mask.any() and prices:
+        value_given_usd = tx.loc[disposal_mask, 'input_amount'] * tx.loc[disposal_mask, 'input_currency'].map(prices).fillna(0)
+        value_received_usd = tx.loc[disposal_mask, 'output_amount'] * tx.loc[disposal_mask, 'output_currency'].map(prices).fillna(1.0) # Use 1.0 for USDT
         slippage_fee = value_given_usd - value_received_usd
-        # Add slippage to any explicit fee the user might have entered
-        tx.loc[swap_mask, 'calculated_fee'] = tx.loc[swap_mask, 'calculated_fee'] + slippage_fee
-
-    # --- Analysis Stage (using the new `calculated_fee` column) ---
-    # (The rest of the function proceeds as before, but uses the corrected fees)
+        tx.loc[disposal_mask, 'calculated_fee'] = tx.loc[disposal_mask, 'calculated_fee'] + slippage_fee.clip(lower=0)
     
     toman_stats = tx[toman_mask].groupby('person_name').agg(total_toman_paid=('input_amount', 'sum'), total_usdt_received=('output_amount', 'sum')).reset_index()
     if not toman_stats.empty: toman_stats['avg_usdt_cost'] = toman_stats['total_toman_paid'] / toman_stats['total_usdt_received']
@@ -137,7 +127,7 @@ def generate_financial_analysis(transactions, prices):
         portfolio_analysis['total_cost_of_holdings'] = portfolio_analysis['amount'] * portfolio_analysis['avg_buy_price']
         portfolio_analysis['floating_pnl_usd'] = portfolio_analysis['current_value_usd'] - portfolio_analysis['total_cost_of_holdings']
     
-    disposals = tx[tx['transaction_type'].isin(['sell', 'swap'])].copy()
+    disposals = tx[disposal_mask].copy() # Use the same mask from before
     if not disposals.empty and not cost_basis.empty:
         disposals = pd.merge(disposals, cost_basis, left_on=['person_name', 'input_currency'], right_on=['person_name', 'currency'], how='left')
         disposals['value_received_usd'] = disposals.apply(lambda row: row['output_amount'] * prices.get(row['output_currency'], 1.0), axis=1)
