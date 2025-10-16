@@ -4,36 +4,48 @@ from utils import initialize_state, get_all_transactions, delete_transaction, TR
 
 st.set_page_config(page_title="Transaction History", layout="wide")
 
+# --- NEW: Modern CSS for Transaction Cards with a Left Color Bar ---
 st.markdown("""
 <style>
+/* This is the main container for each transaction card */
 .transaction-card {
-    position: relative;
-    background-color: #262730;
-    border-radius: 8px;
-    padding: 1rem 1rem 1rem 2rem;
-    margin-bottom: 1rem;
-    border: 1px solid #333;
+    position: relative; /* Crucial for positioning the color bar */
+    background-color: #262730; /* A dark, subtle background for the card */
+    border-radius: 8px; /* Soft rounded corners */
+    /* Padding: top, right, bottom, left. More padding on the left to make space for the bar */
+    padding: 1rem 1rem 1rem 2rem; 
+    margin-bottom: 1rem; /* Space between cards */
+    border: 1px solid #333; /* A very light border to help it stand out */
 }
+
+/* This creates the vertical color bar using a pseudo-element */
 .transaction-card::before {
-    content: '';
-    position: absolute;
+    content: ''; /* Pseudo-elements must have a content property */
+    position: absolute; /* Position it relative to the .transaction-card */
     left: 0;
     top: 0;
-    width: 8px;
-    height: 100%;
+    width: 8px; /* The thickness of the color bar */
+    height: 100%; /* Make it the full height of the card */
+    /* Match the top and bottom left corners with the card's radius */
     border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
 }
-.buy::before { background-color: #28a745; }
-.sell::before { background-color: #dc3545; }
-.transfer::before { background-color: #ffc107; }
-.swap::before { background-color: #007bff; }
+
+/* Define the colors for each transaction type */
+.buy::before { background-color: #28a745; }    /* Green */
+.sell::before { background-color: #dc3545; }   /* Red */
+.transfer::before { background-color: #ffc107; } /* Yellow */
+.swap::before { background-color: #007bff; }     /* Blue */
 </style>
 """, unsafe_allow_html=True)
 
+# Map transaction types to our new CSS classes
 TYPE_TO_CLASS = {
-    "buy_usdt_with_toman": "buy", "buy_crypto_with_usdt": "buy",
-    "sell": "sell", "transfer": "transfer", "swap": "swap"
+    "buy_usdt_with_toman": "buy",
+    "buy_crypto_with_usdt": "buy",
+    "sell": "sell",
+    "transfer": "transfer",
+    "swap": "swap"
 }
 
 initialize_state()
@@ -42,6 +54,7 @@ transactions = get_all_transactions()
 st.title("📜 Transaction History")
 
 if st.session_state.confirming_delete_id:
+    # ... (منطق تایید حذف بدون تغییر باقی می‌ماند)
     try:
         tx_to_delete = transactions[transactions['id'] == st.session_state.confirming_delete_id].iloc[0]
         st.warning("Are you sure you want to permanently delete this transaction?")
@@ -66,9 +79,15 @@ else:
     portfolio_df, _, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
     
     for index, row in transactions.iterrows():
-        css_class = f"transaction-card {TYPE_TO_CLASS.get(row['transaction_type'], '')}"
-        st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
+        # --- MODIFIED: Apply the new card structure ---
+        # 1. Get the correct class (e.g., "buy", "sell")
+        css_class_type = TYPE_TO_CLASS.get(row['transaction_type'], "")
+        # 2. Combine it with the main card class
+        full_css_class = f"transaction-card {css_class_type}"
+        # 3. Create the div container using markdown
+        st.markdown(f'<div class="{full_css_class}">', unsafe_allow_html=True)
         
+        # --- The content inside the card (no changes here) ---
         c1, c2, c3 = st.columns([4, 4, 2])
         with c1:
             type_label = TRANSACTION_TYPE_LABELS.get(row['transaction_type'], 'N/A')
@@ -84,4 +103,6 @@ else:
             if st.button("🗑️ Delete", key=f"delete_{row['id']}"):
                 st.session_state.confirming_delete_id = row['id']
                 st.rerun()
+
+        # 4. Close the div container
         st.markdown('</div>', unsafe_allow_html=True)
