@@ -4,14 +4,13 @@ from utils import initialize_state, get_all_transactions, delete_transaction, TR
 
 st.set_page_config(page_title="Transaction History", layout="wide")
 
-# --- NEW: Modern CSS for the card with a left colored bar ---
 st.markdown("""
 <style>
 .transaction-card {
-    position: relative; /* Needed for the pseudo-element */
-    background-color: #262730; /* Dark background for the card */
+    position: relative;
+    background-color: #262730;
     border-radius: 8px;
-    padding: 1rem 1rem 1rem 2rem; /* Add left padding to make space for the bar */
+    padding: 1rem 1rem 1rem 2rem;
     margin-bottom: 1rem;
     border: 1px solid #333;
 }
@@ -20,7 +19,7 @@ st.markdown("""
     position: absolute;
     left: 0;
     top: 0;
-    width: 8px; /* Thickness of the colored bar */
+    width: 8px;
     height: 100%;
     border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
@@ -43,14 +42,26 @@ transactions = get_all_transactions()
 st.title("📜 Transaction History")
 
 if st.session_state.confirming_delete_id:
-    # ... (منطق تایید حذف بدون تغییر)
     try:
-        # ...
+        tx_to_delete = transactions[transactions['id'] == st.session_state.confirming_delete_id].iloc[0]
+        st.warning("Are you sure you want to permanently delete this transaction?")
+        col1, col2, _ = st.columns([1,1,5])
+        if col1.button("✅ Yes, delete", type="primary"):
+            delete_transaction(st.session_state.confirming_delete_id)
+            st.session_state.confirming_delete_id = None
+            st.success("Deleted.")
+            st.rerun()
+        if col2.button("❌ Cancel"):
+            st.session_state.confirming_delete_id = None
+            st.rerun()
     except:
-        st.session_state.confirming_delete_id = None; st.rerun()
+        st.session_state.confirming_delete_id = None
+        st.rerun()
 else:
     st.markdown("View, filter, and manage all your transactions.")
-    if transactions.empty: st.warning("No transactions found."); st.stop()
+    if transactions.empty:
+        st.warning("No transactions found.")
+        st.stop()
     
     portfolio_df, _, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
     
