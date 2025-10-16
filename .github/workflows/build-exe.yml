@@ -26,9 +26,13 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # Using the powerful hook and restoring the "--windowed" flag for the final product
+      # --- THE FINAL, "BULLDOZER" BUILD COMMAND ---
+      # This command is extremely explicit and leaves nothing to chance.
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --windowed --name "CryptoTracker" --additional-hooks-dir hooks 1_📈_Dashboard.py
+        run: |
+          pyinstaller --onefile --windowed --name "CryptoTracker" ^
+          --collect-all streamlit ^
+          1_📈_Dashboard.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
