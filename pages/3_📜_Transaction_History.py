@@ -1,80 +1,51 @@
 import streamlit as st
 import pandas as pd
-from utils import get_all_transactions, delete_transaction, format_currency, TRANSACTION_TYPE_LABELS, PEOPLE
+from utils import initialize_state, get_all_transactions, delete_transaction, TRANSACTION_TYPE_LABELS, generate_financial_analysis
 
-st.set_page_config(
-    page_title="Transaction History",
-    page_icon="📜",
-    layout="wide"
-)
+st.set_page_config(page_title="Transaction History", layout="wide")
+initialize_state()
+transactions = get_all_transactions()
 
 st.title("📜 Transaction History")
 st.markdown("View, filter, and manage all your transactions.")
 
-# This needs to be called to make sure data exists
-if 'transactions' not in st.session_state:
-    st.warning("Data not initialized. Please go to the Dashboard first.")
+if transactions.empty:
+    st.warning("No transactions found.")
     st.stop()
     
-transactions = get_all_transactions()
+# We need the analysis to get cost basis for sales
+portfolio_df, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
 
-if transactions.empty:
-    st.warning("No transactions found. Go to the 'New Transaction' page to add one.")
-    st.stop()
+# --- Filtering UI in Sidebar ---
+# ... (You can add filters here later if needed)
 
-# --- Filtering UI ---
-st.sidebar.header("Filters")
-
-# Get unique people and types from the actual data
-people_options = transactions['person_name'].unique()
-type_options = transactions['transaction_type'].unique()
-
-filter_person = st.sidebar.multiselect(
-    "Filter by Person",
-    options=people_options,
-    format_func=lambda x: x.capitalize()
-)
-
-filter_type = st.sidebar.multiselect(
-    "Filter by Type",
-    options=type_options,
-    format_func=lambda x: TRANSACTION_TYPE_LABELS.get(x, x)
-)
-
-# Apply filters
-filtered_transactions = transactions.copy()
-if filter_person:
-    filtered_transactions = filtered_transactions[filtered_transactions['person_name'].isin(filter_person)]
-if filter_type:
-    filtered_transactions = filtered_transactions[filtered_transactions['transaction_type'].isin(filter_type)]
-
-
-# --- Display Transactions ---
-st.write(f"Displaying **{len(filtered_transactions)}** of **{len(transactions)}** transactions.")
-
-for index, row in filtered_transactions.iterrows():
+for index, row in transactions.iterrows():
     with st.container(border=True):
         col1, col2, col3 = st.columns([4, 4, 1])
-        
         with col1:
             type_label = TRANSACTION_TYPE_LABELS.get(row['transaction_type'], 'N/A')
             st.markdown(f"**{type_label}** by **{row['person_name'].capitalize()}**")
             st.caption(f"Date: {row['transaction_date'].strftime('%Y-%m-%d')}")
         
         with col2:
-            in_amount = format_currency(row['input_amount'], row['input_currency'])
-            out_amount = format_currency(row['output_amount'], row['output_currency'])
-            st.markdown(f"**Input:** {in_amount}")
-            st.markdown(f"**Output:** {out_amount}")
+            in_amount = f"{row['input_amount']:,.6f}".rstrip('0').rstrip('.')
+            out_amount = f"{row['output_amount']:,.6f}".rstrip('0').rstrip('.')
+            st.markdown(f"**Input:** {in_amount} {row['input_currency']}")
+            st.markdown(f"**Output:** {out_amount} {row['output_currency']}")
+
+            # --- NEW: Show P/L on Sell Transactions ---
+            if row['transaction_type'] == 'sell':
+                person_assets = portfolio_df[(portfolio_df['person_name'] == row['person_name']) & (portfolio_df['currency'] == row['input_currency'])]
+                if not person_assets.empty:
+                    avg_buy_price = person_assets.iloc[0]['avg_buy_price']
+                    cost_of_goods = row['input_amount'] * avg_buy_price
+                    fee = row.get('fee', 0)
+                    pnl = row['output_amount'] - cost_of_goods - fee
+                    pnl_color = "green" if pnl >= 0 else "red"
+                    st.markdown(f"**<span style='color:{pnl_color};'>Realized P/L: ${pnl:,.2f}</span>**", unsafe_allow_html=True)
 
         with col3:
-            # Use a unique key for the button based on the transaction id
             if st.button("Delete", key=f"delete_{row['id']}", type="primary"):
                 delete_transaction(row['id'])
-                st.success(f"Transaction {row['id'][:6]}... deleted.")
-                # Rerun the script to refresh the list
+                st.success("Transaction deleted.")
                 st.rerun()
-        
-        if pd.notna(row['notes']) and row['notes'].strip():
-            with st.expander("View Notes"):
-                st.write(row['notes'])
