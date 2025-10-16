@@ -1,22 +1,40 @@
 import streamlit as st
 import pandas as pd
-from utils import initialize_transactions, get_all_transactions, get_full_portfolio_analysis
+import time
+from utils import initialize_state, get_all_transactions, get_full_portfolio_analysis, update_prices_in_state
 
 st.set_page_config(page_title="Crypto Dashboard", layout="wide")
 
-# Initialize and load data
-initialize_transactions()
+# Initialize data and prices state
+initialize_state()
 transactions = get_all_transactions()
-analysis_df = get_full_portfolio_analysis(transactions)
 
 # --- Header ---
 st.title("📈 Crypto Portfolio Dashboard")
 st.markdown("An overview of your collective crypto investments.")
 
+# --- Price Update Section ---
+# Get all unique symbols from portfolio to update their prices
+all_symbols = transactions['input_currency'].unique().tolist() + transactions['output_currency'].unique().tolist()
+unique_symbols = list(set(s for s in all_symbols if s not in ['IRR', None]))
+
+# Trigger price update automatically (if needed) or manually
+update_prices_in_state(unique_symbols)
+if st.button("🔄 Refresh Live Prices"):
+    update_prices_in_state(unique_symbols, force_refresh=True)
+
+# Display last update time
+last_update = st.session_state.get('last_price_fetch', 0)
+if last_update > 0:
+    st.caption(f"Prices last updated: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_update))}")
+
+# --- Perform Analysis with available prices ---
+prices = st.session_state.get('prices', {})
+analysis_df = get_full_portfolio_analysis(transactions, prices)
+
 # --- Top Level Metrics (StatsCards) ---
 total_investment_usd = 0
 if not analysis_df.empty:
-    # Sum of what was spent on currently held assets
     total_investment_usd = analysis_df['total_cost_of_current_holdings'].sum()
     
 total_market_value = analysis_df['current_value_usd'].sum() if not analysis_df.empty else 0
@@ -33,13 +51,11 @@ col3.metric(
 
 st.markdown("---")
 
-# --- NEW: P/L Summary per Person ---
+# --- P/L Summary per Person ---
 st.subheader("Profit & Loss Summary")
-
-if analysis_df.empty:
+if analysis_df.empty or 'pnl_usd' not in analysis_df.columns:
     st.info("No portfolio data to analyze. Add some 'Buy Crypto' transactions.")
 else:
-    # Group by person to get their total P/L
     pnl_summary = analysis_df.groupby('person_name').agg(
         total_value=('current_value_usd', 'sum'),
         total_cost=('total_cost_of_current_holdings', 'sum')
@@ -47,7 +63,6 @@ else:
     
     pnl_summary['pnl_usd'] = pnl_summary['total_value'] - pnl_summary['total_cost']
     
-    # Determine number of columns based on number of people
     num_people = len(pnl_summary)
     if num_people > 0:
         cols = st.columns(num_people)
