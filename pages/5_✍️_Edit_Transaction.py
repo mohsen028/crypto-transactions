@@ -32,7 +32,7 @@ if tx_type == 'buy_usdt_with_toman':
         amount_toman = st.number_input("Amount Toman (IRR)", value=int(tx_data['input_amount']), format="%d")
         c1, c2 = st.columns(2)
         amount_usdt = c1.number_input("Amount USDT Received", value=float(tx_data['output_amount']), format="%.8f")
-        usdt_rate = c2.number_input("USDT Rate", value=int(tx_data['rate']), format="%d")
+        usdt_rate = c2.number_input("USDT Rate", value=int(tx_data.get('rate', 0)), format="%d")
         notes = st.text_area("Notes", value=tx_data.get('notes', ''))
         
         if st.form_submit_button("Update Transaction"):
@@ -41,11 +41,29 @@ if tx_type == 'buy_usdt_with_toman':
             update_transaction(transaction_id, form_data)
             st.success("Transaction updated!"); st.session_state.edit_transaction_id = None
 
-# --- FORM 2: Buy Crypto with USDT ---
+# --- FORM 2: Buy Crypto with USDT (THE MISSING FORM) ---
 elif tx_type == 'buy_crypto_with_usdt':
     with st.form("edit_buy_crypto_form"):
         st.subheader("Edit: Buy Crypto with USDT")
-        # ... (similar structure as above)
+        person_name = st.selectbox("Person", options=PEOPLE, index=PEOPLE.index(tx_data['person_name']))
+        transaction_date = st.date_input("Date", value=pd.to_datetime(tx_data['transaction_date']))
+        
+        output_currency = st.selectbox("Crypto to Buy", options=CRYPTOS, index=CRYPTOS.index(tx_data['output_currency']))
+        c1, c2 = st.columns(2)
+        input_amount = c1.number_input("Amount USDT Spent", value=float(tx_data['input_amount']), format="%.8f")
+        output_amount = c2.number_input("Amount Crypto Received", value=float(tx_data['output_amount']), format="%.8f")
+        fee = st.number_input("Explicit Fee (in USDT)", value=float(tx_data.get('fee', 0.0)), format="%.8f")
+        notes = st.text_area("Notes", value=tx_data.get('notes', ''))
+        
+        if st.form_submit_button("Update Transaction"):
+            form_data = tx_data.copy()
+            form_data.update({
+                "person_name": person_name, "transaction_date": pd.to_datetime(transaction_date),
+                "output_currency": output_currency, "input_amount": input_amount,
+                "output_amount": output_amount, "fee": fee, "notes": notes
+            })
+            update_transaction(transaction_id, form_data)
+            st.success("Transaction updated!"); st.session_state.edit_transaction_id = None
 
 # --- FORM 3, 4, 5: Transfer, Sell, Swap (WITH validation) ---
 else:
@@ -60,22 +78,17 @@ else:
         if tx_type != 'transfer':
             output_currency = st.selectbox("Output/Destination Currency", options=CURRENCIES, index=CURRENCIES.index(tx_data['output_currency']))
         else:
-            output_currency = input_currency # For transfers, output currency is the same
+            output_currency = input_currency
 
         output_amount = st.number_input("Output/Received Amount", value=float(tx_data['output_amount']), format="%.8f")
         notes = st.text_area("Notes", value=tx_data.get('notes', ''))
 
         if st.form_submit_button("Update Transaction"):
-            # --- The Correct Validation Logic for Edits ---
-            original_input_amount = float(tx_data['input_amount'])
-            # Calculate the available balance *ignoring the transaction we are currently editing*
             balance_without_this_tx = get_current_balance(person_name, input_currency, tx_id_to_exclude=transaction_id)
-            
-            # The total available funds are the balance *plus* what this transaction originally "released"
-            total_available_funds = balance_without_this_tx + original_input_amount
+            total_available_funds = balance_without_this_tx + float(tx_data['input_amount'])
             
             if input_amount > total_available_funds:
-                st.error(f"Insufficient balance for this edit. You only have {total_available_funds:,.8f} {input_currency} available for this transaction.")
+                st.error(f"Insufficient balance. You only have {total_available_funds:,.8f} {input_currency} available for this transaction.")
             else:
                 form_data = tx_data.copy()
                 form_data.update({
