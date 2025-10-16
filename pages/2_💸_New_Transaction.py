@@ -13,7 +13,6 @@ st.markdown("---")
 
 form_data = {"person_name": person_name, "transaction_date": pd.to_datetime(transaction_date)}
 
-# --- BUY FORM ---
 if transaction_type == "Buy":
     buy_type = st.radio("What are you buying with?", ["Toman (IRR)", "USDT"], horizontal=True)
     if buy_type == "Toman (IRR)":
@@ -43,14 +42,12 @@ if transaction_type == "Buy":
             amount_crypto = c2.number_input("Amount of Crypto Received", min_value=0.0, format="%.8f")
             fee = st.number_input("Explicit Fee (in USDT, if any)", min_value=0.0, format="%.8f")
             notes = st.text_area("Notes (Optional)")
-            # --- NEW: Display fee if entered ---
             if fee > 0:
-                st.info(f"Explicit Fee: {fee:,.8f} USDT")
+                st.info(f"Explicit Fee to be saved: {fee:,.8f} USDT")
             if st.form_submit_button("Save Transaction"):
                 form_data.update({"output_currency": crypto_to_buy, "input_amount": amount_usdt, "output_amount": amount_crypto, "fee": fee, "notes": notes})
                 add_transaction(form_data); st.success("Transaction Saved!")
 
-# --- TRANSFER FORM ---
 elif transaction_type == "Transfer":
     st.subheader("Transfer Currency")
     form_data["transaction_type"] = "transfer"
@@ -68,8 +65,7 @@ elif transaction_type == "Transfer":
             form_data.update({"input_currency": currency, "output_currency": currency, "input_amount": amount_sent, "output_amount": amount_received, "notes": notes, "fee": fee})
             add_transaction(form_data); st.success("Transaction Saved!")
 
-# --- SELL & SWAP Forms ---
-else:
+else: # Sell or Swap
     form_data.update({"transaction_type": "sell" if transaction_type == "Sell" else "swap"})
     with st.form("sell_swap_form"):
         st.subheader(f"{transaction_type} Crypto")
@@ -81,9 +77,8 @@ else:
         output_amount = c2.number_input("Amount Received", min_value=0.0, format="%.8f")
         fee = st.number_input("Explicit Fee (in USD, if any)", min_value=0.0, format="%.8f")
         notes = st.text_area("Notes (Optional)")
-        # --- NEW: Display fee if entered ---
         if fee > 0:
-            st.info(f"Explicit Fee: {fee:,.8f} USD")
+            st.info(f"Explicit Fee to be saved: {fee:,.8f} USD")
         if st.form_submit_button("Save Transaction"):
             form_data.update({"input_currency": input_currency, "output_currency": output_currency, "input_amount": input_amount, "output_amount": output_amount, "fee": fee, "notes": notes})
             add_transaction(form_data); st.success("Transaction Saved!")
