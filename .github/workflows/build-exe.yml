@@ -26,10 +26,9 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # --- DEBUGGING CHANGE: We removed "--windowed" ---
-      # This will force a console window to open and show us any errors.
+      # Using the powerful hook and restoring the "--windowed" flag for the final product
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --name "CryptoTracker" --additional-hooks-dir hooks 1_📈_Dashboard.py
+        run: pyinstaller --onefile --windowed --name "CryptoTracker" --additional-hooks-dir hooks 1_📈_Dashboard.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
