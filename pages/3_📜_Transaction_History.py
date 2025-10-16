@@ -4,45 +4,34 @@ from utils import initialize_state, get_all_transactions, delete_transaction, TR
 
 st.set_page_config(page_title="Transaction History", layout="wide")
 
-# --- NEW: Define CSS styles for containers ---
+# --- NEW: Modern CSS for a vertical color bar ---
 st.markdown("""
 <style>
-.st-emotion-cache-16txtl3 {
-    padding-top: 1rem; /* Adjust this value as needed */
-    padding-bottom: 1rem; /* Adjust this value as needed */
+/* Base style for all transaction containers */
+.transaction-container {
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #333; /* A light border for all */
+    border-left-width: 5px; /* Make the left border thicker */
+    background-color: #1a1a1a; /* Dark background for content */
 }
 .buy-container {
-    background-color: rgba(40, 167, 69, 0.1);
-    border: 1px solid rgba(40, 167, 69, 0.4);
-    border-radius: 10px;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    border-left-color: #28a745; /* Green bar for buy */
 }
 .sell-container {
-    background-color: rgba(220, 53, 69, 0.1);
-    border: 1px solid rgba(220, 53, 69, 0.4);
-    border-radius: 10px;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    border-left-color: #dc3545; /* Red bar for sell */
 }
 .transfer-container {
-    background-color: rgba(255, 193, 7, 0.1);
-    border: 1px solid rgba(255, 193, 7, 0.4);
-    border-radius: 10px;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    border-left-color: #ffc107; /* Yellow bar for transfer */
 }
 .swap-container {
-    background-color: rgba(0, 123, 255, 0.1);
-    border: 1px solid rgba(0, 123, 255, 0.4);
-    border-radius: 10px;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    border-left-color: #007bff; /* Blue bar for swap */
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- NEW: Map transaction types to CSS classes ---
+# --- Map transaction types to CSS classes ---
 TYPE_TO_CLASS = {
     "buy_usdt_with_toman": "buy-container",
     "buy_crypto_with_usdt": "buy-container",
@@ -61,8 +50,7 @@ if st.session_state.confirming_delete_id:
     try:
         tx_to_delete = transactions[transactions['id'] == st.session_state.confirming_delete_id].iloc[0]
         st.warning("Are you sure you want to permanently delete this transaction?")
-        # ...
-        col1, col2, _ = st.columns([1,1,5])
+        col1, col2, _ = st.columns([1,1,5]);
         if col1.button("✅ Yes, delete", type="primary"):
             delete_transaction(st.session_state.confirming_delete_id); st.session_state.confirming_delete_id = None; st.success("Deleted."); st.rerun()
         if col2.button("❌ Cancel"):
@@ -76,8 +64,8 @@ else:
     portfolio_df, _, _, _ = generate_financial_analysis(transactions, st.session_state.get('prices', {}))
     
     for index, row in transactions.iterrows():
-        # --- MODIFIED: Use markdown to wrap content in a colored div ---
-        css_class = TYPE_TO_CLASS.get(row['transaction_type'], "") # Get the CSS class
+        # --- MODIFIED: Use markdown with the new class names ---
+        css_class = f"transaction-container {TYPE_TO_CLASS.get(row['transaction_type'], '')}"
         st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
         
         c1, c2, c3 = st.columns([4, 4, 2])
@@ -95,11 +83,4 @@ else:
             if st.button("🗑️ Delete", key=f"delete_{row['id']}"):
                 st.session_state.confirming_delete_id = row['id']
                 st.rerun()
-        
-        # --- Display Realized P/L at the bottom of the container ---
-        if row['transaction_type'] in ['sell', 'swap'] and not portfolio_df.empty:
-            # This logic could be more complex, for now we just show a placeholder if needed
-            # The full P/L logic is in the dashboard
-            pass # You can add a simplified P/L note here if desired
-
         st.markdown('</div>', unsafe_allow_html=True)
