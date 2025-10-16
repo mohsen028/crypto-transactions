@@ -1,55 +1,43 @@
 import streamlit as st
 import pandas as pd
-from utils import get_all_transactions, calculate_portfolio
+from utils import get_all_transactions, get_full_portfolio_analysis
 
-st.set_page_config(
-    page_title="Global Portfolio",
-    page_icon="📊",
-    layout="wide"
-)
+st.set_page_config(page_title="Detailed Portfolio", icon="📊", layout="wide")
 
-st.title("📊 Global Portfolio Overview")
-st.markdown("View the current asset balance for everyone in one place.")
+st.title("📊 Detailed Portfolio View")
+st.markdown("A detailed breakdown of assets, costs, and current market value for everyone.")
 
-# Load and calculate the portfolio
 transactions = get_all_transactions()
 if transactions.empty:
-    st.warning("No transactions recorded yet. Add a new transaction to begin.")
+    st.warning("No transactions recorded yet.")
     st.stop()
 
-full_portfolio = calculate_portfolio(transactions)
-if full_portfolio.empty:
-    st.info("No one has any assets with a positive balance right now.")
+analysis_df = get_full_portfolio_analysis(transactions)
+if analysis_df.empty:
+    st.info("No assets with a positive balance.")
     st.stop()
 
-# --- Display Full Portfolio Grouped by Person ---
-st.subheader("All Asset Balances")
-
-# Get a list of all people who have assets
-people_with_assets = full_portfolio['person_name'].unique()
-
-for person in people_with_assets:
-    # Create a container for each person for better visual separation
+people = analysis_df['person_name'].unique()
+for person in people:
     with st.container(border=True):
-        st.markdown(f"#### {person.capitalize()}'s Holdings")
+        st.markdown(f"### {person.capitalize()}'s Portfolio")
+        person_df = analysis_df[analysis_df['person_name'] == person].copy()
+
+        # Filter out non-crypto assets for P/L view
+        person_crypto_df = person_df[person_df['currency'] != 'IRR']
         
-        # Filter the dataframe for the current person
-        person_assets = full_portfolio[full_portfolio['person_name'] == person]
-        
-        # Prepare a clean dataframe for display
-        display_df = person_assets[['currency', 'amount']].copy()
-        
-        # Display the assets in a table
         st.dataframe(
-            display_df,
+            person_crypto_df,
             hide_index=True,
             use_container_width=True,
             column_config={
-                "currency": st.column_config.TextColumn("Asset", width="medium"),
-                "amount": st.column_config.NumberColumn("Current Balance", format="%.8f")
-            }
+                "currency": "Asset",
+                "amount": st.column_config.NumberColumn("Balance", format="%.6f"),
+                "avg_buy_price": st.column_config.NumberColumn("Avg. Buy Price", format="$%.2f"),
+                "current_price": st.column_config.NumberColumn("Current Price", format="$%.2f"),
+                "current_value_usd": st.column_config.NumberColumn("Market Value", format="$%.2f"),
+                "pnl_usd": st.column_config.NumberColumn("Floating P/L", format="$%.2f"),
+            },
+            # Hide columns we don't need for the view
+            column_order=("currency", "amount", "current_value_usd", "pnl_usd", "avg_buy_price", "current_price")
         )
-
-# --- Optional: Show Raw Data in an Expander ---
-with st.expander("View Raw Portfolio Data"):
-    st.dataframe(full_portfolio, hide_index=True, use_container_width=True)
