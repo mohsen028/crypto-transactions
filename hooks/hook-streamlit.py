@@ -1,21 +1,22 @@
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_entry_points
 
-# This hook ensures that all necessary data files, metadata, and hidden imports
-# for Streamlit and its core dependencies are correctly bundled.
+# This is the master hook for Streamlit.
 
-# Collect all data files, binaries, and hidden imports from streamlit
+# 1. Collect all standard files (data, binaries, hidden imports) for streamlit itself.
 datas, binaries, hiddenimports = collect_all('streamlit')
 
-# Also explicitly include altair and its dependencies, a common point of failure
-_, _, altair_hiddenimports = collect_all('altair')
-hiddenimports.extend(altair_hiddenimports)
+# 2. CRITICAL STEP: Find and include all 'entry points'. This is what was failing.
+# Streamlit uses this system to find its internal commands and components.
+# Without this, the app crashes instantly on startup.
+hiddenimports += collect_entry_points('streamlit.components.v1')
+hiddenimports += collect_entry_points('streamlit')
 
-# Add other known problematic imports
+# 3. Also include known dependencies that PyInstaller often misses.
 hiddenimports.extend([
+    'altair',
     'pandas',
-    'numpy',
     'pydeck',
-    'watchdog',
+    'requests',
     'tornado',
-    'requests'
+    'watchdog',
 ])
