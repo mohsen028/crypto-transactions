@@ -24,7 +24,17 @@ jobs:
         pip install -r requirements.txt
 
     - name: Build executable with PyInstaller
-      run: pyinstaller --name "CryptoApp" --onefile --windowed --add-data "utils.py;." --add-data "pages;pages" --collect-all "streamlit" --hidden-import "streamlit.web.server.server" --hidden-import "pandas._libs.tslibs.base" "1_📈_Dashboard.py"
+      shell: pwsh
+      run: |
+        pyinstaller --name "CryptoApp" `
+                    --onefile `
+                    --windowed `
+                    --add-data "utils.py;." `
+                    --add-data "pages;pages" `
+                    --collect-all "streamlit" `
+                    --hidden-import "streamlit.web.server.server" `
+                    --hidden-import "pandas._libs.tslibs.base" `
+                    "1_📈_Dashboard.py"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
