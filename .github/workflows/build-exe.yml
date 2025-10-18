@@ -1,4 +1,4 @@
-name: Build Windows Executable (Debug Mode)
+name: Build Windows Executable
 
 on:
   push:
@@ -19,20 +19,18 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Install PyInstaller
         run: pip install pyinstaller
 
-      # --- DEBUGGING BUILD: We have removed the "--windowed" flag ---
-      # This will force a console window to open and show us the final error.
+      # --- FINAL STEP: We are now packaging the main.py launcher script ---
+      # We also restore the "--windowed" flag for the final product.
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --name "CryptoTracker" --collect-all streamlit 1_📈_Dashboard.py
+        run: pyinstaller --onefile --windowed --name "CryptoTracker" --collect-all streamlit main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CryptoTracker-Windows-Debug
+          name: CryptoTracker-Windows
           path: dist/CryptoTracker.exe
