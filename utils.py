@@ -9,6 +9,7 @@ import os
 if getattr(sys, 'frozen', False):
     base_path = os.path.dirname(sys.executable)
 else:
+    # This fallback is for running the script directly
     base_path = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(base_path, "transactions.csv")
 
@@ -36,7 +37,7 @@ def initialize_state():
     if 'edit_transaction_id' not in st.session_state: st.session_state.edit_transaction_id = None
 
 # --- CONSTANTS ---
-TRANSACTION_TYPE_LABELS = {"buy_usdt_with_toman": "Buy USDT", "buy_crypto_with_dt": "Buy Crypto", "sell": "Sell", "transfer": "Transfer", "swap": "Swap"}
+TRANSACTION_TYPE_LABELS = {"buy_usdt_with_toman": "Buy USDT", "buy_crypto_with_usdt": "Buy Crypto", "sell": "Sell", "transfer": "Transfer", "swap": "Swap"}
 PEOPLE = ["hassan", "abbas", "shahla", "mohsen"]
 CRYPTOS = ["BTC", "ETH", "BNB", "SOL", "XRP", "USDC", "ADA", "DOGE", "DOT", "PAXG"]
 CURRENCIES = ["USDT"] + CRYPTOS
@@ -75,7 +76,7 @@ def get_current_balance(person_name, currency_symbol, transactions_df=None):
     losses = person_tx[person_tx['input_currency'] == currency_symbol]['input_amount'].sum()
     return gains - losses
 
-# --- THE MISSING FUNCTION IS NOW RESTORED ---
+# --- PRICE FETCHING ---
 def update_prices_in_state(symbols, force_refresh=False):
     now = time.time()
     if not force_refresh and (now - st.session_state.get('last_price_fetch', 0)) < 300: return
@@ -95,8 +96,57 @@ def update_prices_in_state(symbols, force_refresh=False):
     except requests.exceptions.RequestException:
         if force_refresh: st.toast("Failed to update prices.", icon="❌")
 
-# --- FINANCIAL ANALYSIS (This function is fine) ---
+# --- THE BRAIN OF THE APP - FULLY RESTORED ---
 def generate_financial_analysis(transactions, prices):
-    # This function should now work correctly because the data is clean
-    # and all necessary helper functions exist.
-    pass # The long, correct code for this function is assumed to be here.
+    tx = _ensure_data_types(transactions.copy())
+    if tx.empty:
+        empty_df = pd.DataFrame()
+        return empty_df, empty_df, empty_df, empty_df
+
+    tx['calculated_fee'] = tx['fee']
+    toman_mask = tx['transaction_type'] == 'buy_usdt_with_toman'
+    if toman_mask.any():
+        rate = tx.loc[toman_mask, 'rate']
+        hidden_fee_usd = (tx.loc[toman_mask, 'input_amount'] / rate.replace(0, pd.NA)) - tx.loc[toman_mask, 'output_amount']
+        tx.loc[toman_mask, 'calculated_fee'] = hidden_fee_usd.fillna(0)
+
+    transfer_mask = tx['transaction_type'] == 'transfer'
+    if transfer_mask.any():
+        fee_amount = tx.loc[transfer_mask, 'input_amount'] - tx.loc[transfer_mask, 'output_amount']
+        fee_currency_price = tx.loc[transfer_mask, 'input_currency'].map(prices).fillna(1.0)
+        tx.loc[transfer_mask, 'calculated_fee'] = fee_amount * fee_currency_price
+
+    toman_stats = tx[toman_mask].groupby('person_name').agg(total_toman_paid=('input_amount', 'sum'), total_usdt_received=('output_amount', 'sum')).reset_index()
+    if not toman_stats.empty: toman_stats['avg_usdt_cost'] = toman_stats['total_toman_paid'] / toman_stats['total_usdt_received']
+    
+    acquisitions = tx[tx['transaction_type'].isin(['buy_crypto_with_usdt', 'swap'])].copy()
+    if not acquisitions.empty:
+        acquisitions['cost_in_usd'] = acquisitions.apply(lambda row: row['input_amount'] * prices.get(row['input_currency'], 1.0), axis=1)
+        acquisitions['total_cost'] = acquisitions['cost_in_usd'] + acquisitions['calculated_fee']
+        cost_basis_agg = acquisitions.groupby(['person_name', 'output_currency']).agg(total_cost_usd=('total_cost', 'sum'), total_amount_crypto=('output_amount', 'sum')).reset_index()
+        cost_basis_agg['avg_buy_price'] = cost_basis_agg['total_cost_usd'] / cost_basis_agg['total_amount_crypto']
+        cost_basis = cost_basis_agg.rename(columns={'output_currency': 'currency'})
+    else: cost_basis = pd.DataFrame(columns=['person_name', 'currency', 'avg_buy_price'])
+    
+    portfolio = pd.concat([tx.rename(columns={'output_currency': 'currency', 'output_amount': 'amount'})[['person_name', 'currency', 'amount']], tx.rename(columns={'input_currency': 'currency', 'input_amount': 'amount'})[['person_name', 'currency', 'amount']].assign(amount=lambda df: -df['amount'])]).groupby(['person_name', 'currency'])['amount'].sum().reset_index()
+    portfolio = portfolio[portfolio['amount'] > 1e-9]
+    portfolio_analysis = pd.merge(portfolio, cost_basis, on=['person_name', 'currency'], how='left')
+    
+    if prices and not portfolio_analysis.empty:
+        portfolio_analysis['current_price'] = portfolio_analysis['currency'].map(prices)
+        portfolio_analysis['current_value_usd'] = portfolio_analysis['amount'] * portfolio_analysis['current_price']
+        portfolio_analysis['total_cost_of_holdings'] = portfolio_analysis['amount'] * portfolio_analysis['avg_buy_price']
+        portfolio_analysis['floating_pnl_usd'] = portfolio_analysis['current_value_usd'] - portfolio_analysis['total_cost_of_holdings']
+    
+    disposals = tx[tx['transaction_type'].isin(['sell', 'swap'])].copy()
+    if not disposals.empty and not cost_basis.empty:
+        disposals = pd.merge(disposals, cost_basis, left_on=['person_name', 'input_currency'], right_on=['person_name', 'currency'], how='left')
+        disposals['value_received_usd'] = disposals.apply(lambda row: row['output_amount'] * prices.get(row['output_currency'], 1.0), axis=1)
+        disposals['cost_of_goods_sold'] = disposals['input_amount'] * disposals['avg_buy_price']
+        disposals['realized_pnl'] = disposals['value_received_usd'] - disposals['cost_of_goods_sold'] - disposals['calculated_fee']
+        realized_pnl_summary = disposals.groupby('person_name')['realized_pnl'].sum().reset_index()
+    else: realized_pnl_summary = pd.DataFrame(columns=['person_name', 'realized_pnl'])
+    
+    fee_summary = tx[tx['calculated_fee'] > 0].groupby(['person_name', 'transaction_type'])['calculated_fee'].sum().reset_index().rename(columns={'calculated_fee': 'fee'})
+    
+    return portfolio_analysis.fillna(0), toman_stats, realized_pnl_summary, fee_summary
