@@ -1,4 +1,4 @@
-name: Build Windows Executable (Debug Mode)
+name: Build Windows Executable
 
 on:
   push:
@@ -27,15 +27,18 @@ jobs:
       shell: pwsh
       run: |
         pyinstaller --name "CryptoApp" `
+                    --onefile `
+                    --windowed `
+                    --add-data "1_📈_Dashboard.py;." `
                     --add-data "utils.py;." `
                     --add-data "pages;pages" `
                     --collect-all "streamlit" `
                     --hidden-import "streamlit.web.server.server" `
                     --hidden-import "pandas._libs.tslibs.base" `
-                    "1_📈_Dashboard.py"
+                    "run_app.py"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CryptoApp-Windows-Debug
-        path: dist/ # آپلود کل پوشه
+        name: CryptoApp-Windows
+        path: dist/CryptoApp.exe
