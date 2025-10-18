@@ -2,34 +2,35 @@ import subprocess
 import sys
 import os
 
-# This is the "Ignition Switch" for our application.
+# --- SAFETY SWITCH START ---
+# This "if" statement is the crucial safety switch. It prevents the infinite loop.
+# The code inside this block will only run when the user directly double-clicks the .exe file.
+# It will NOT run in the child processes that Streamlit creates.
+if __name__ == '__main__':
+    # 1. Construct the path to the main dashboard script.
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
-# 1. Construct the path to the main dashboard script.
-# This ensures it works correctly when frozen by PyInstaller.
-if getattr(sys, 'frozen', False):
-    # If the application is run as a bundle/frozen exe
-    base_path = sys._MEIPASS
-else:
-    # If run as a normal script
-    base_path = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(base_path, '1_📈_Dashboard.py')
 
-script_path = os.path.join(base_path, '1_📈_Dashboard.py')
+    # 2. Construct the command to run Streamlit correctly.
+    command = [
+        sys.executable,
+        "-m", "streamlit", "run",
+        script_path,
+        "--server.headless", "true",
+        "--server.port", "8501"
+    ]
 
-# 2. Construct the command to run Streamlit correctly.
-# We use sys.executable to ensure we're using the Python interpreter
-# bundled within the .exe file.
-command = [
-    sys.executable,
-    "-m", "streamlit", "run",
-    script_path,
-    "--server.headless", "true", # Important for packaged apps
-    "--server.port", "8501" # Standard port
-]
-
-# 3. Launch the Streamlit server process.
-try:
-    subprocess.run(command)
-except Exception as e:
-    # If something goes wrong, write it to a file for debugging.
-    with open("error.log", "w") as f:
-        f.write(str(e))
+    # 3. Launch the Streamlit server process.
+    try:
+        # We use Popen instead of run to launch it as a separate, non-blocking process.
+        proc = subprocess.Popen(command)
+        proc.wait() # Wait for the process to complete (i.e., user closes the app)
+    except Exception as e:
+        with open("error.log", "w") as f:
+            f.write("Failed to launch Streamlit process.\n")
+            f.write(str(e))
+# --- SAFETY SWITCH END ---
