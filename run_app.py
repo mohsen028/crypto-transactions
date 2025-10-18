@@ -11,6 +11,6 @@ def get_path(filename):
 if __name__ == "__main__":
     main_script_path = get_path("1_📈_Dashboard.py")
     
-    # This simulates the command: streamlit run 1_📈_Dashboard.py
-    sys.argv = ["streamlit", "run", main_script_path, "--server.headless=true", "--server.port=8501"]
+    # دستور ساده شده که به استریملیت اجازه می‌دهد خودش پورت را انتخاب کند
+    sys.argv = ["streamlit", "run", main_script_path]
     stcli.main()
