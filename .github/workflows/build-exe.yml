@@ -1,4 +1,4 @@
-name: Build Windows Executable
+name: Build Portable Windows App
 
 on:
   push:
@@ -10,35 +10,42 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+    - name: Download portable Python
+      run: |
+        curl -L -o python_embed.zip https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip
+        Expand-Archive -Path python_embed.zip -DestinationPath python_portable
+
+    - name: Install pip
+      run: |
+        curl -L -o get-pip.py https://bootstrap.pypa.io/get-pip.py
+        ./python_portable/python.exe get-pip.py
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
-        pip install -r requirements.txt
+        ./python_portable/Scripts/pip.exe install -r requirements.txt
 
-    - name: Build executable with PyInstaller
-      shell: pwsh
+    - name: Create the final app folder
       run: |
-        pyinstaller --name "CryptoApp" `
-                    --onefile `
-                    --windowed `
-                    --add-data "1_📈_Dashboard.py;." `
-                    --add-data "utils.py;." `
-                    --add-data "pages;pages" `
-                    --collect-all "streamlit" `
-                    --hidden-import "streamlit.web.server.server" `
-                    --hidden-import "pandas._libs.tslibs.base" `
-                    "run_app.py"
+        New-Item -ItemType Directory -Force -Path "CryptoApp"
+        Copy-Item -Path "./python_portable/*" -Destination "./CryptoApp/python" -Recurse
+        Copy-Item -Path "./pages" -Destination "./CryptoApp/pages" -Recurse
+        Copy-Item -Path "*.py" -Destination "./CryptoApp"
+        Copy-Item -Path "requirements.txt" -Destination "./CryptoApp"
+
+    - name: Create the run script
+      run: |
+        $run_script = '@echo off
+        echo Starting CryptoApp... please wait.
+        cd /d "%~dp0"
+        python\\python.exe -m streamlit run "1_📈_Dashboard.py"
+        pause'
+        $run_script | Out-File -FilePath "./CryptoApp/run.bat" -Encoding utf8
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CryptoApp-Windows
-        path: dist/CryptoApp.exe
+        name: CryptoApp-Portable
+        path: CryptoApp
