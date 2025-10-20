@@ -44,7 +44,7 @@ jobs:
         $run_script = '@echo off
         echo Starting CryptoApp... please wait.
         cd /d "%~dp0"
-        python\\python.exe -m streamlit run "1_📈_Dashboard.py"
+        python\\python.exe -m streamlit run "1_Dashboard.py"
         pause' # <-- THE FIX IS HERE. `pause` IS BACK!
         $run_script | Out-File -FilePath "./CryptoApp/run.bat" -Encoding utf8
 
