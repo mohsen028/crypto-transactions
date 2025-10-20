@@ -10,6 +10,8 @@ import sqlite3
 if getattr(sys, 'frozen', False):
     base_path = os.path.dirname(sys.executable)
 else:
+    # This part is tricky when running from a .bat file, let's make it more robust
+    # We assume the .bat file is inside the main app folder, where utils.py also is.
     base_path = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(base_path, "crypto_transactions.db")
 
@@ -53,14 +55,27 @@ def add_transaction(data):
     st.session_state.transactions = pd.concat([st.session_state.transactions, new_tx_df], ignore_index=True)
 
 def update_transaction(id, data):
+    # --- این خط کد جدید و جادویی ماست ---
+    # Convert pandas Timestamp to a string SQLite can understand
+    if 'transaction_date' in data:
+        data['transaction_date'] = str(data['transaction_date'])
+    # ------------------------------------
+
     conn = get_db_connection()
     set_clause = ", ".join([f"{key} = ?" for key in data.keys()])
     values = list(data.values()) + [id]
     conn.execute(f"UPDATE transactions SET {set_clause} WHERE id = ?", tuple(values))
     conn.commit(); conn.close()
+    
+    # Update the session state correctly
     idx = st.session_state.transactions[st.session_state.transactions['id'] == id].index
     if not idx.empty:
-        for key, value in data.items(): st.session_state.transactions.loc[idx, key] = value
+        for key, value in data.items():
+            # Special handling for date to keep it as a datetime object in pandas
+            if key == 'transaction_date':
+                st.session_state.transactions.loc[idx, key] = pd.to_datetime(value)
+            else:
+                st.session_state.transactions.loc[idx, key] = value
     st.session_state.transactions = _ensure_data_types(st.session_state.transactions)
 
 def delete_transaction(transaction_id):
@@ -80,13 +95,20 @@ def get_all_transactions():
         return _ensure_data_types(st.session_state.transactions.copy()).sort_values(by="transaction_date", ascending=False)
     return _ensure_data_types(pd.DataFrame())
 
-def get_current_balance(person_name, currency_symbol, transactions_df=None):
+# --- THIS IS THE CORRECTED FUNCTION ---
+def get_current_balance(person_name, currency_symbol, transactions_df=None, tx_id_to_exclude=None):
     if transactions_df is None: transactions_df = get_all_transactions()
+
+    # If an ID is provided, filter out that transaction before calculating the balance
+    if tx_id_to_exclude:
+        transactions_df = transactions_df[transactions_df['id'] != tx_id_to_exclude]
+
     if transactions_df.empty: return 0.0
     person_tx = transactions_df[transactions_df['person_name'] == person_name]
     gains = person_tx[person_tx['output_currency'] == currency_symbol]['output_amount'].sum()
     losses = person_tx[person_tx['input_currency'] == currency_symbol]['input_amount'].sum()
     return gains - losses
+# ------------------------------------
 
 def update_prices_in_state(symbols, force_refresh=False):
     now = time.time()
