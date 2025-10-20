@@ -4,7 +4,7 @@ import datetime
 from utils import add_transaction, get_current_balance, PEOPLE, CURRENCIES, CRYPTOS, update_prices_in_state
 
 st.set_page_config(page_title="New Transaction", layout="centered")
-st.title("💸 Record a New Transaction")
+st.title("Record a New Transaction")
 update_prices_in_state(CURRENCIES)
 
 person_name = st.selectbox("Person", options=PEOPLE, format_func=lambda x: x.capitalize())
