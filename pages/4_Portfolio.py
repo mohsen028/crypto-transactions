@@ -26,7 +26,7 @@ if not transactions.empty:
     unique_symbols = [s for s in all_symbols if s != 'IRR']
 
 update_prices_in_state(unique_symbols)
-if st.button("🔄 Refresh Live Prices"): update_prices_in_state(unique_symbols, force_refresh=True)
+if st.button("Refresh Live Prices"): update_prices_in_state(unique_symbols, force_refresh=True)
 
 # ... بقیه کد بدون تغییر باقی می‌ماند
 last_update = st.session_state.get('last_price_fetch', 0)
