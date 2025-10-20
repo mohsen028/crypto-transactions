@@ -26,7 +26,7 @@ st.markdown("---")
 prices = st.session_state.get('prices', {})
 portfolio_df, toman_stats_df, realized_pnl_df, fee_summary_df = generate_financial_analysis(transactions, prices)
 
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Floating P/L", "💰 Realized P/L", "🇮🇷 Toman Exchange", "💸 Fee Analysis"])
+tab1, tab2, tab3, tab4 = st.tabs(["Floating P/L", "Realized P/L", "Toman Exchange", "Fee Analysis"])
 
 with tab1:
     st.subheader("Current Portfolio & Floating Profit/Loss")
