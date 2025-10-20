@@ -37,7 +37,7 @@ TYPE_TO_BADGE_CLASS = {
 initialize_state()
 if 'confirming_delete_id' not in st.session_state: st.session_state.confirming_delete_id = None
 transactions = get_all_transactions()
-st.title("📜 Transaction History")
+st.title("Transaction History")
 
 if st.session_state.confirming_delete_id:
     # ... (منطق تایید حذف بدون تغییر)
@@ -86,7 +86,7 @@ else:
             with c3:
                 if st.button("✍️ Edit", key=f"edit_{row['id']}"):
                     st.session_state.edit_transaction_id = row['id']
-                    st.switch_page("pages/5_✍️_Edit_Transaction.py")
+                    st.switch_page("pages/5_Edit_Transaction.py")
                 if st.button("🗑️ Delete", key=f"delete_{row['id']}"):
                     st.session_state.confirming_delete_id = row['id']
                     st.rerun()
