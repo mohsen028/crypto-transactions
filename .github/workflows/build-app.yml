@@ -31,12 +31,9 @@ jobs:
 
     - name: Create the final app folder
       run: |
-        # --- THE FIX IS HERE: Create all subdirectories first ---
         New-Item -ItemType Directory -Force -Path "CryptoApp"
         New-Item -ItemType Directory -Force -Path "CryptoApp/python"
         New-Item -ItemType Directory -Force -Path "CryptoApp/pages"
-        
-        # Now, copy files into the prepared directories
         Copy-Item -Path "./python_portable/*" -Destination "./CryptoApp/python" -Recurse
         Copy-Item -Path "./pages/*" -Destination "./CryptoApp/pages" -Recurse
         Copy-Item -Path "*.py" -Destination "./CryptoApp"
@@ -47,7 +44,8 @@ jobs:
         $run_script = '@echo off
         echo Starting CryptoApp... please wait.
         cd /d "%~dp0"
-        python\\python.exe -m streamlit run "1_📈_Dashboard.py"'
+        python\\python.exe -m streamlit run "1_📈_Dashboard.py"
+        pause' # <-- THE FIX IS HERE. `pause` IS BACK!
         $run_script | Out-File -FilePath "./CryptoApp/run.bat" -Encoding utf8
 
     - name: Upload artifact
