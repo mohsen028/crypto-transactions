@@ -6,7 +6,7 @@ st.set_page_config(page_title="Edit Transaction", layout="centered")
 
 if 'edit_transaction_id' not in st.session_state or not st.session_state.edit_transaction_id:
     st.warning("Please select a transaction to edit from the 'Transaction History' page.")
-    st.page_link("pages/3_📜_Transaction_History.py", label="Go to Transaction History", icon="📜")
+    st.page_link("pages/3_Transaction_History.py", label="Go to Transaction History")
     st.stop()
 
 transaction_id = st.session_state.edit_transaction_id
@@ -17,7 +17,7 @@ except IndexError:
     st.session_state.edit_transaction_id = None
     st.stop()
 
-st.title(f"✍️ Editing Transaction")
+st.title("Editing Transaction")
 st.caption(f"ID: `{transaction_id}`")
 st.markdown("---")
 
@@ -103,4 +103,4 @@ else:
 
 if st.session_state.edit_transaction_id is None:
     st.info("Edit complete. You can now leave this page.")
-    st.page_link("pages/3_📜_Transaction_History.py", label="Go back to Transaction History", icon="📜")
+    st.page_link("pages/3_Transaction_History.py", label="Go back to Transaction History")
