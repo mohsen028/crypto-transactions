@@ -12,7 +12,7 @@ def color_pnl(val):
 
 initialize_state()
 transactions = get_all_transactions()
-st.title("📊 Detailed Portfolio Analysis")
+st.title("Detailed Portfolio Analysis")
 st.markdown("A deep-dive into each person's holdings, costs, and performance.")
 
 if transactions.empty:
