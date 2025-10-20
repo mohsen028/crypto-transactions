@@ -30,7 +30,7 @@ jobs:
     - name: Create the final app folder
       run: |
         New-Item -ItemType Directory -Force -Path "CryptoApp"
-        Copy-Item -Path "./python_portable/*" -Destination "./CryptoApp/python" -Recurse
+        Copy-Item -Path "./python_portable/*" -Destination "./CryptoApp/python" -Recse
         Copy-Item -Path "./pages" -Destination "./CryptoApp/pages" -Recurse
         Copy-Item -Path "*.py" -Destination "./CryptoApp"
         Copy-Item -Path "requirements.txt" -Destination "./CryptoApp"
